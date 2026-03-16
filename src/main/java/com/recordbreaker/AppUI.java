@@ -42,6 +42,11 @@ public class AppUI extends Application {
         root = new StackPane();
         root.getChildren().add(mainLayout);
 
+        stage.getIcons().add(
+                new Image(getClass().getResourceAsStream("/RecordBreakerLogo64.png"))
+        );
+
+
         Scene scene = new Scene(root, 400, 650);
 
         showSplashScreen();
@@ -63,8 +68,7 @@ public class AppUI extends Application {
                         "-fx-border-radius: 24;"
         );
 
-        Label icon = new Label("🏋");
-        icon.setStyle("-fx-font-size: 46px;");
+        ImageView logo = createLogoView(90);
 
         Label title = new Label("Record Breaker");
         title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #111827;");
@@ -128,7 +132,7 @@ public class AppUI extends Application {
         signUpButton.setOnAction(e -> showSignUpScreen());
 
         card.getChildren().addAll(
-                icon,
+                logo,
                 title,
                 subtitle,
                 usernameField,
@@ -487,15 +491,13 @@ public class AppUI extends Application {
                 "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);"
         );
 
-        Label icon = new Label("🏋");
-        icon.setStyle("-fx-font-size: 74px;");
+        ImageView logo = createLogoView(128);
 
         Label title = new Label("RECORD BREAKER");
         title.setStyle(
                 "-fx-font-size: 34px;" +
                         "-fx-font-weight: bold;" +
-                        "-fx-text-fill: white;" +
-                        "-fx-letter-spacing: 1.5px;"
+                        "-fx-text-fill: white;"
         );
 
         Label subtitle = new Label("Train harder. Track smarter.");
@@ -515,7 +517,7 @@ public class AppUI extends Application {
                         "-fx-text-fill: #94a3b8;"
         );
 
-        layout.getChildren().addAll(icon, title, subtitle, progressBar, loadingLabel);
+        layout.getChildren().addAll(logo, title, subtitle, progressBar, loadingLabel);
         mainLayout.setCenter(layout);
 
         Timeline timeline = new Timeline(
@@ -592,6 +594,11 @@ public class AppUI extends Application {
 
         imageCard.getChildren().add(iconLabel);
 
+        Button exitButton = new Button("🚪 Exit");
+        exitButton.setPrefWidth(110);
+        exitButton.setStyle(modernSecondaryButtonStyle());
+        exitButton.setOnAction(e -> confirmExitWorkout(username));
+
         Button backButton = new Button("⬅ Back");
         Button changeButton = new Button("⇄ Change");
         Button nextButton = new Button("Log Sets");
@@ -623,7 +630,7 @@ public class AppUI extends Application {
             backButton.setManaged(false);
         }
 
-        HBox bottomBar = new HBox(15, backButton, changeButton, nextButton);
+        HBox bottomBar = new HBox(15, backButton, changeButton, nextButton, exitButton);
         bottomBar.setAlignment(Pos.CENTER);
 
         Region spacerTop = new Region();
@@ -868,6 +875,12 @@ public class AppUI extends Application {
 
         StackPane imageCard = new StackPane();
         imageCard.setPrefSize(180, 180);
+
+        Button exitButton = new Button("🚪 Exit");
+        exitButton.setMaxWidth(Double.MAX_VALUE);
+        exitButton.setStyle(modernSecondaryButtonStyle());
+        exitButton.setOnAction(e -> confirmExitWorkout(username));
+
         imageCard.setMaxSize(180, 180);
         imageCard.setStyle(
                 "-fx-background-color: white;" +
@@ -1098,7 +1111,7 @@ public class AppUI extends Application {
 
         cancelButton.setOnAction(e -> showCustomWorkout(username, workoutType, exercises, currentIndex));
 
-        HBox buttonRow = new HBox(12, cancelButton, doneButton);
+        HBox buttonRow = new HBox(12, cancelButton, doneButton, exitButton);
         buttonRow.setAlignment(Pos.CENTER);
         HBox.setHgrow(cancelButton, Priority.ALWAYS);
         HBox.setHgrow(doneButton, Priority.ALWAYS);
@@ -1141,49 +1154,57 @@ public class AppUI extends Application {
         String dateJoined = DatabaseHelper.getDateJoined(username);
 
         Label title = new Label("Profile");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
 
-        Label pictureLabel = new Label();
-        pictureLabel.setPrefSize(100, 100);
-        pictureLabel.setStyle(
-                "-fx-border-color: black;" +
+        StackPane pictureBox = new StackPane();
+        pictureBox.setPrefSize(120, 120);
+        pictureBox.setMaxSize(120, 120);
+        pictureBox.setStyle(
+                "-fx-background-color: #f8fafc;" +
+                        "-fx-border-color: #d1d5db;" +
                         "-fx-border-width: 2;" +
-                        "-fx-alignment: center;" +
-                        "-fx-background-color: #f4f4f4;"
+                        "-fx-border-radius: 20;" +
+                        "-fx-background-radius: 20;"
         );
 
         if (profilePicturePath != null && !profilePicturePath.isBlank()) {
             try {
                 Image image = new Image("file:" + profilePicturePath);
                 ImageView imageView = new ImageView(image);
-                imageView.setFitWidth(100);
-                imageView.setFitHeight(100);
+                imageView.setFitWidth(110);
+                imageView.setFitHeight(110);
                 imageView.setPreserveRatio(true);
-                pictureLabel.setGraphic(imageView);
+                pictureBox.getChildren().add(imageView);
             } catch (Exception e) {
-                pictureLabel.setText("No Image");
+                pictureBox.getChildren().add(new Label("No Image"));
             }
         } else {
-            pictureLabel.setText("No Image");
+            Label noImage = new Label("No Image");
+            noImage.setStyle("-fx-text-fill: #6b7280;");
+            pictureBox.getChildren().add(noImage);
         }
 
-        Label nameLabel = new Label("Name: " + displayName);
-        Label heightLabel = new Label("Height: " + height + " cm");
-        Label weightLabel = new Label("Weight: " + weight + " kg");
-        Label mostLoggedLabel = new Label("Most Logged Exercise: " + mostLogged);
-        Label heaviestLiftLabel = new Label("Heaviest Lift: " + heaviestLift);
-        Label mostImprovedLabel = new Label("Most Improved: " + mostImproved);
-        Label streakLabel = new Label("Logging Streak: " + streak + " day(s)");
-        Label joinedLabel = new Label("Date Joined: " + dateJoined);
+        VBox statsBox = new VBox(12);
+        statsBox.setAlignment(Pos.CENTER_LEFT);
+        statsBox.setMaxWidth(320);
+        statsBox.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 18;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 18;" +
+                        "-fx-padding: 18;"
+        );
 
-        nameLabel.setStyle("-fx-font-size: 16px;");
-        heightLabel.setStyle("-fx-font-size: 16px;");
-        weightLabel.setStyle("-fx-font-size: 16px;");
-        mostLoggedLabel.setStyle("-fx-font-size: 16px;");
-        heaviestLiftLabel.setStyle("-fx-font-size: 16px;");
-        mostImprovedLabel.setStyle("-fx-font-size: 16px;");
-        streakLabel.setStyle("-fx-font-size: 16px;");
-        joinedLabel.setStyle("-fx-font-size: 16px;");
+        statsBox.getChildren().addAll(
+                profileStat("Name", displayName),
+                profileStat("Height", height + " cm"),
+                profileStat("Weight", weight + " kg"),
+                profileStat("Most Logged Exercise", mostLogged),
+                profileStat("Heaviest Lift", heaviestLift),
+                profileStat("Most Improved", mostImproved),
+                profileStat("Logging Streak", streak + " day(s)"),
+                profileStat("Date Joined", dateJoined)
+        );
 
         Button editButton = new Button("Edit Profile");
         Button backButton = new Button("Back");
@@ -1191,37 +1212,20 @@ public class AppUI extends Application {
         editButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
 
+        editButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
+
         editButton.setOnAction(e -> showEditProfileScreen(username));
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.setMaxWidth(420);
-        layout.setStyle(screenCardStyle());
+        VBox card = createScreenCard(420);
+        card.getChildren().addAll(title, pictureBox, statsBox, editButton, backButton);
 
-        layout.getChildren().addAll(
-                title,
-                pictureLabel,
-                nameLabel,
-                heightLabel,
-                weightLabel,
-                mostLoggedLabel,
-                heaviestLiftLabel,
-                mostImprovedLabel,
-                streakLabel,
-                joinedLabel,
-                editButton,
-                backButton
-        );
-
-        ScrollPane scrollPane = new ScrollPane(layout);
+        ScrollPane scrollPane = new ScrollPane(card);
         scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        StackPane wrapper = new StackPane(scrollPane);
-        wrapper.setStyle(appBackgroundStyle());
-        wrapper.setPadding(new Insets(30));
-        mainLayout.setCenter(wrapper);
+        mainLayout.setCenter(wrapScreen(scrollPane));
     }
 
     private void showEditProfileScreen(String username) {
@@ -1324,17 +1328,23 @@ public class AppUI extends Application {
             alert.showAndWait();
         });
 
+        ImageView logo = createLogoView(28);
+
         Label titleLabel = new Label("Record Breaker");
         titleLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;");
+
+        HBox titleBox = new HBox(10, logo, titleLabel);
+        titleBox.setAlignment(Pos.CENTER);
 
         Button profileButton = new Button("👤");
         profileButton.setStyle(modernSecondaryButtonStyle());
         profileButton.setOnAction(e -> showProfileScreen(username));
 
         topBar.setLeft(menuButton);
-        topBar.setCenter(titleLabel);
+
+        topBar.setCenter(titleBox);
         topBar.setRight(profileButton);
-        BorderPane.setAlignment(titleLabel, Pos.CENTER);
+        BorderPane.setAlignment(titleBox, Pos.CENTER);
 
         Label welcomeLabel = new Label("Welcome, " + username);
         welcomeLabel.setStyle(screenTitleStyle());
@@ -1731,9 +1741,12 @@ public class AppUI extends Application {
         historyList.getItems().addAll(DatabaseHelper.getWorkoutHistory(username));
         historyList.setPrefHeight(420);
         historyList.setStyle(
-                "-fx-background-radius: 16;" +
-                        "-fx-border-radius: 16;" +
-                        "-fx-border-color: #d1d5db;"
+                "-fx-background-color: white;" +
+                        "-fx-control-inner-background: white;" +
+                        "-fx-background-radius: 18;" +
+                        "-fx-border-radius: 18;" +
+                        "-fx-border-color: #d1d5db;" +
+                        "-fx-padding: 8;"
         );
 
         Button backButton = new Button("Back");
@@ -2116,6 +2129,32 @@ public class AppUI extends Application {
                 "-fx-border-radius: 24;";
     }
 
+    private ImageView createLogoView(double size) {
+        Image image = new Image(getClass().getResourceAsStream("/RecordBreakerLogo128.png"));
+        ImageView logo = new ImageView(image);
+        logo.setFitWidth(size);
+        logo.setFitHeight(size);
+        logo.setPreserveRatio(true);
+        return logo;
+    }
+
+    private void confirmExitWorkout(String username) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Exit Workout");
+        alert.setHeaderText("Are you sure you want to exit?");
+        alert.setContentText("Your saved sets will be kept. Unsaved sets on this screen will be lost.");
+
+        ButtonType noButton = new ButtonType("No", ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType exitSaveButton = new ButtonType("Exit and Save", ButtonBar.ButtonData.OK_DONE);
+
+        alert.getButtonTypes().setAll(noButton, exitSaveButton);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == exitSaveButton) {
+            showDashboard(username);
+        }
+    }
+
     private String screenTitleStyle() {
         return "-fx-font-size: 28px;" +
                 "-fx-font-weight: bold;" +
@@ -2141,5 +2180,16 @@ public class AppUI extends Application {
         wrapper.setStyle(appBackgroundStyle());
         wrapper.setPadding(new Insets(30));
         return wrapper;
+    }
+
+    private VBox profileStat(String label, String value) {
+        Label labelNode = new Label(label);
+        labelNode.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280; -fx-font-weight: bold;");
+
+        Label valueNode = new Label(value);
+        valueNode.setStyle("-fx-font-size: 18px; -fx-text-fill: #111827;");
+
+        VBox box = new VBox(2, labelNode, valueNode);
+        return box;
     }
 }

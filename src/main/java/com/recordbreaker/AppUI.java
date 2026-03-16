@@ -1,5 +1,6 @@
 package com.recordbreaker;
-
+import javafx.scene.Node;
+import javafx.scene.text.TextAlignment;
 import javafx.animation.*;
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -51,58 +52,99 @@ public class AppUI extends Application {
     }
 
     private void showLoginScreen() {
+        VBox card = new VBox(14);
+        card.setAlignment(Pos.CENTER);
+        card.setMaxWidth(340);
+        card.setPadding(new Insets(28));
+        card.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.96);" +
+                        "-fx-background-radius: 24;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 24;"
+        );
+
+        Label icon = new Label("🏋");
+        icon.setStyle("-fx-font-size: 46px;");
+
         Label title = new Label("Record Breaker");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #111827;");
 
         Label subtitle = new Label("Log in to continue");
-        subtitle.setStyle("-fx-font-size: 14px;");
+        subtitle.setStyle("-fx-font-size: 14px; -fx-text-fill: #6b7280;");
 
         TextField usernameField = new TextField();
         usernameField.setPromptText("Username");
+        usernameField.setStyle(modernFieldStyle());
 
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Password");
+        passwordField.setStyle(modernFieldStyle());
+
+        Label usernameHint = new Label("Username: 4-20 characters, letters/numbers/_ only");
+        usernameHint.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280;");
+
+        Label passwordHint = new Label("Password: 8+ chars, upper, lower, and number");
+        passwordHint.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280;");
 
         Button loginButton = new Button("Log In");
-        Button goToSignUpButton = new Button("Create Account");
+        loginButton.setMaxWidth(Double.MAX_VALUE);
+        loginButton.setStyle(modernPrimaryButtonStyle());
+
+        Button signUpButton = new Button("Create Account");
+        signUpButton.setMaxWidth(Double.MAX_VALUE);
+        signUpButton.setStyle(modernSecondaryButtonStyle());
 
         Label messageLabel = new Label();
-
-        loginButton.setMaxWidth(Double.MAX_VALUE);
-        goToSignUpButton.setMaxWidth(Double.MAX_VALUE);
+        messageLabel.setWrapText(true);
+        messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #dc2626;");
 
         loginButton.setOnAction(e -> {
-            String username = usernameField.getText();
+            String username = usernameField.getText().trim();
             String password = passwordField.getText();
 
             if (username.isEmpty() || password.isEmpty()) {
                 messageLabel.setText("Please fill in all fields.");
-            } else {
-                boolean validLogin = DatabaseHelper.loginUser(username, password);
+                return;
+            }
 
-                if (validLogin) {
-                    showDashboard(username);
-                } else {
-                    messageLabel.setText("Invalid username or password.");
-                }
+            if (!isValidUsername(username)) {
+                messageLabel.setText("Username must be 4-20 characters and only use letters, numbers, or _");
+                return;
+            }
+
+            if (!isValidPassword(password)) {
+                messageLabel.setText("Password must be at least 8 characters and include uppercase, lowercase, and a number.");
+                return;
+            }
+
+            boolean validLogin = DatabaseHelper.loginUser(username, password);
+            if (validLogin) {
+                showDashboard(username);
+            } else {
+                messageLabel.setText("Invalid username or password.");
             }
         });
 
-        goToSignUpButton.setOnAction(e -> showSignUpScreen());
+        signUpButton.setOnAction(e -> showSignUpScreen());
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-
-        layout.getChildren().addAll(
-                title, subtitle, usernameField, passwordField,
-                loginButton, goToSignUpButton, messageLabel
+        card.getChildren().addAll(
+                icon,
+                title,
+                subtitle,
+                usernameField,
+                usernameHint,
+                passwordField,
+                passwordHint,
+                loginButton,
+                signUpButton,
+                messageLabel
         );
 
-        VBox.setVgrow(usernameField, Priority.NEVER);
-        VBox.setVgrow(passwordField, Priority.NEVER);
+        StackPane wrapper = new StackPane(card);
+        wrapper.setStyle("-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);");
+        wrapper.setPadding(new Insets(30));
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapper);
     }
 
     private void showRecordBrokenAnimation() {
@@ -269,94 +311,216 @@ public class AppUI extends Application {
     }
 
     private void showSignUpScreen() {
+        VBox card = new VBox(12);
+        card.setAlignment(Pos.CENTER);
+        card.setMaxWidth(380);
+        card.setPadding(new Insets(28));
+        card.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.97);" +
+                        "-fx-background-radius: 24;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 24;"
+        );
+
         Label title = new Label("Create Account");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #111827;");
+
+        Label subtitle = new Label("Build your profile and start tracking progress");
+        subtitle.setStyle("-fx-font-size: 13px; -fx-text-fill: #6b7280;");
 
         TextField usernameField = new TextField();
         usernameField.setPromptText("Choose a username");
+        usernameField.setStyle(modernFieldStyle());
 
         TextField emailField = new TextField();
         emailField.setPromptText("Email");
+        emailField.setStyle(modernFieldStyle());
+
+        TextField confirmEmailField = new TextField();
+        confirmEmailField.setPromptText("Confirm email");
+        confirmEmailField.setStyle(modernFieldStyle());
 
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Choose a password");
+        passwordField.setStyle(modernFieldStyle());
+
+        PasswordField confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("Confirm password");
+        confirmPasswordField.setStyle(modernFieldStyle());
+
+        Label emailMatchIndicator = createMatchIndicator();
+        Label passwordMatchIndicator = createMatchIndicator();
+
+        HBox emailConfirmRow = new HBox(8, confirmEmailField, emailMatchIndicator);
+        emailConfirmRow.setAlignment(Pos.CENTER);
+        HBox.setHgrow(confirmEmailField, Priority.ALWAYS);
+
+        HBox passwordConfirmRow = new HBox(8, confirmPasswordField, passwordMatchIndicator);
+        passwordConfirmRow.setAlignment(Pos.CENTER);
+        HBox.setHgrow(confirmPasswordField, Priority.ALWAYS);
+
+        Label usernameHint = new Label("Username: 4-20 characters, letters/numbers/_ only");
+        usernameHint.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280;");
+
+        Label emailHint = new Label("Enter a valid email format");
+        emailHint.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280;");
+
+        Label passwordHint = new Label("Password: 8+ chars, upper, lower, and number");
+        passwordHint.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280;");
+
+        Runnable refreshIndicators = () -> {
+            String email = emailField.getText().trim();
+            String confirmEmail = confirmEmailField.getText().trim();
+            String password = passwordField.getText();
+            String confirmPassword = confirmPasswordField.getText();
+
+            if (!confirmEmail.isEmpty()) {
+                updateMatchIndicator(emailMatchIndicator, email.equals(confirmEmail));
+            } else {
+                emailMatchIndicator.setText("○");
+                emailMatchIndicator.setStyle("-fx-font-size: 18px; -fx-text-fill: #9ca3af;");
+            }
+
+            if (!confirmPassword.isEmpty()) {
+                updateMatchIndicator(passwordMatchIndicator, password.equals(confirmPassword));
+            } else {
+                passwordMatchIndicator.setText("○");
+                passwordMatchIndicator.setStyle("-fx-font-size: 18px; -fx-text-fill: #9ca3af;");
+            }
+        };
+
+        emailField.textProperty().addListener((obs, oldVal, newVal) -> refreshIndicators.run());
+        confirmEmailField.textProperty().addListener((obs, oldVal, newVal) -> refreshIndicators.run());
+        passwordField.textProperty().addListener((obs, oldVal, newVal) -> refreshIndicators.run());
+        confirmPasswordField.textProperty().addListener((obs, oldVal, newVal) -> refreshIndicators.run());
 
         Button createButton = new Button("Sign Up");
-        Button backButton = new Button("Back to Login");
-        Label messageLabel = new Label();
-
         createButton.setMaxWidth(Double.MAX_VALUE);
+        createButton.setStyle(modernPrimaryButtonStyle());
+
+        Button backButton = new Button("Back to Login");
         backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
+
+        Label messageLabel = new Label();
+        messageLabel.setWrapText(true);
+        messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #dc2626;");
 
         createButton.setOnAction(e -> {
-            String username = usernameField.getText();
-            String email = emailField.getText();
+            String username = usernameField.getText().trim();
+            String email = emailField.getText().trim();
+            String confirmEmail = confirmEmailField.getText().trim();
             String password = passwordField.getText();
+            String confirmPassword = confirmPasswordField.getText();
 
-            if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            if (username.isEmpty() || email.isEmpty() || confirmEmail.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
                 messageLabel.setText("Please fill in all fields.");
+                return;
+            }
+
+            if (!isValidUsername(username)) {
+                messageLabel.setText("Username must be 4-20 characters and only use letters, numbers, or _");
+                return;
+            }
+
+            if (!isValidEmailFormat(email)) {
+                messageLabel.setText("Please enter a valid email address.");
+                return;
+            }
+
+            if (!email.equals(confirmEmail)) {
+                messageLabel.setText("Emails do not match.");
+                return;
+            }
+
+            if (!isValidPassword(password)) {
+                messageLabel.setText("Password must be at least 8 characters and include uppercase, lowercase, and a number.");
+                return;
+            }
+
+            if (!password.equals(confirmPassword)) {
+                messageLabel.setText("Passwords do not match.");
+                return;
+            }
+
+            boolean created = DatabaseHelper.createUser(username, email, password);
+            if (created) {
+                messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #16a34a;");
+                messageLabel.setText("Account created successfully.");
+                // Placeholder for confirmation email hook:
+                // EmailHelper.sendConfirmationEmail(email, username);
             } else {
-                boolean created = DatabaseHelper.createUser(username, email, password);
-                if (created) {
-                    messageLabel.setText("Account created! Please log in.");
-                } else {
-                    messageLabel.setText("Username already exists.");
-                }
+                messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #dc2626;");
+                messageLabel.setText("Username already exists.");
             }
         });
 
         backButton.setOnAction(e -> showLoginScreen());
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(
-                title, usernameField, emailField, passwordField,
-                createButton, backButton, messageLabel
+        card.getChildren().addAll(
+                title,
+                subtitle,
+                usernameField,
+                usernameHint,
+                emailField,
+                emailConfirmRow,
+                emailHint,
+                passwordField,
+                passwordConfirmRow,
+                passwordHint,
+                createButton,
+                backButton,
+                messageLabel
         );
 
-        mainLayout.setCenter(layout);
+        StackPane wrapper = new StackPane(card);
+        wrapper.setStyle("-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);");
+        wrapper.setPadding(new Insets(30));
+
+        mainLayout.setCenter(wrapper);
     }
 
     private void showSplashScreen() {
-        Label title = new Label("Record Breaker");
+        VBox layout = new VBox(18);
+        layout.setAlignment(Pos.CENTER);
+        layout.setStyle(
+                "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);"
+        );
+
+        Label icon = new Label("🏋");
+        icon.setStyle("-fx-font-size: 74px;");
+
+        Label title = new Label("RECORD BREAKER");
         title.setStyle(
-                "-fx-font-size: 32px;" +
+                "-fx-font-size: 34px;" +
                         "-fx-font-weight: bold;" +
-                        "-fx-text-fill: white;"
-        );
-
-        Label logoPlaceholder = new Label("LOGO");
-        logoPlaceholder.setStyle(
-                "-fx-background-color: #1f1f1f;" +
-                        "-fx-border-color: white;" +
-                        "-fx-border-width: 2;" +
                         "-fx-text-fill: white;" +
-                        "-fx-font-size: 24px;" +
-                        "-fx-alignment: center;"
+                        "-fx-letter-spacing: 1.5px;"
         );
-        logoPlaceholder.setPrefSize(220, 220);
 
-        Label loadingLabel = new Label("loading...");
-        loadingLabel.setStyle(
-                "-fx-font-size: 20px;" +
-                        "-fx-text-fill: white;"
+        Label subtitle = new Label("Train harder. Track smarter.");
+        subtitle.setStyle(
+                "-fx-font-size: 15px;" +
+                        "-fx-text-fill: #cbd5e1;"
         );
 
         ProgressBar progressBar = new ProgressBar();
-        progressBar.setPrefWidth(220);
+        progressBar.setPrefWidth(240);
         progressBar.setProgress(0);
+        progressBar.setStyle("-fx-accent: #22c55e;");
 
-        VBox layout = new VBox(25);
-        layout.setAlignment(Pos.CENTER);
-        layout.setStyle("-fx-background-color: #111111;");
-        layout.getChildren().addAll(title, logoPlaceholder, loadingLabel, progressBar);
+        Label loadingLabel = new Label("Loading...");
+        loadingLabel.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-text-fill: #94a3b8;"
+        );
 
+        layout.getChildren().addAll(icon, title, subtitle, progressBar, loadingLabel);
         mainLayout.setCenter(layout);
 
         Timeline timeline = new Timeline(
                 new KeyFrame(Duration.seconds(0), new KeyValue(progressBar.progressProperty(), 0)),
-                new KeyFrame(Duration.seconds(2.5), new KeyValue(progressBar.progressProperty(), 1))
+                new KeyFrame(Duration.seconds(2.2), new KeyValue(progressBar.progressProperty(), 1))
         );
 
         timeline.setOnFinished(e -> showLoginScreen());
@@ -570,22 +734,26 @@ public class AppUI extends Application {
     }
 
     private void showWorkoutComplete(String username) {
-        Label title = new Label("Workout Complete");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+        Label icon = new Label("✅");
+        icon.setStyle("-fx-font-size: 54px;");
 
-        Label summary = new Label("Great work today!\n\nYour workout has been saved.");
-        summary.setStyle("-fx-font-size: 16px;");
+        Label title = new Label("Workout Complete");
+        title.setStyle(screenTitleStyle());
+
+        Label summary = new Label("Great work today.\nYour workout has been saved.");
+        summary.setStyle("-fx-font-size: 15px; -fx-text-fill: #6b7280;");
+        summary.setWrapText(true);
+        summary.setTextAlignment(TextAlignment.CENTER);
 
         Button dashboardButton = new Button("Back to Dashboard");
         dashboardButton.setMaxWidth(Double.MAX_VALUE);
+        dashboardButton.setStyle(modernPrimaryButtonStyle());
         dashboardButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(20);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, summary, dashboardButton);
+        VBox card = createScreenCard(380);
+        card.getChildren().addAll(icon, title, summary, dashboardButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showPushWorkout(String username, int currentIndex) {
@@ -1029,6 +1197,8 @@ public class AppUI extends Application {
         VBox layout = new VBox(15);
         layout.setPadding(new Insets(30));
         layout.setAlignment(Pos.CENTER);
+        layout.setMaxWidth(420);
+        layout.setStyle(screenCardStyle());
 
         layout.getChildren().addAll(
                 title,
@@ -1048,7 +1218,10 @@ public class AppUI extends Application {
         ScrollPane scrollPane = new ScrollPane(layout);
         scrollPane.setFitToWidth(true);
 
-        mainLayout.setCenter(scrollPane);
+        StackPane wrapper = new StackPane(scrollPane);
+        wrapper.setStyle(appBackgroundStyle());
+        wrapper.setPadding(new Insets(30));
+        mainLayout.setCenter(wrapper);
     }
 
     private void showEditProfileScreen(String username) {
@@ -1139,8 +1312,10 @@ public class AppUI extends Application {
 
         final String planForToday = todayPlan;
 
+        BorderPane topBar = new BorderPane();
+
         Button menuButton = new Button("☰");
-        menuButton.setStyle("-fx-font-size: 18px;");
+        menuButton.setStyle(modernSecondaryButtonStyle());
         menuButton.setOnAction(e -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Menu");
@@ -1150,29 +1325,28 @@ public class AppUI extends Application {
         });
 
         Label titleLabel = new Label("Record Breaker");
-        titleLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
+        titleLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;");
 
         Button profileButton = new Button("👤");
-        profileButton.setStyle("-fx-font-size: 18px;");
+        profileButton.setStyle(modernSecondaryButtonStyle());
         profileButton.setOnAction(e -> showProfileScreen(username));
 
-        BorderPane topBar = new BorderPane();
         topBar.setLeft(menuButton);
         topBar.setCenter(titleLabel);
         topBar.setRight(profileButton);
         BorderPane.setAlignment(titleLabel, Pos.CENTER);
 
-        Label welcomeLabel = new Label("Welcome " + username);
-        welcomeLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        Label welcomeLabel = new Label("Welcome, " + username);
+        welcomeLabel.setStyle(screenTitleStyle());
 
-        Label planLabel = new Label("It is " + today + ", today's plan: " + todayPlan);
-        planLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555555;");
+        Label planLabel = new Label("Today is " + today + " • " + todayPlan);
+        planLabel.setStyle(screenSubtitleStyle());
         planLabel.setWrapText(true);
 
-        Button startButton = new Button("Start");
+        Button startButton = new Button("Start Workout");
         Button splitsButton = new Button("Splits");
-        Button modifyButton = new Button("Modify");
-        Button recordsButton = new Button("Records");
+        Button modifyButton = new Button("Modify Split");
+        Button recordsButton = new Button("History");
         Button logoutButton = new Button("Log Out");
 
         startButton.setMaxWidth(Double.MAX_VALUE);
@@ -1181,21 +1355,26 @@ public class AppUI extends Application {
         recordsButton.setMaxWidth(Double.MAX_VALUE);
         logoutButton.setMaxWidth(Double.MAX_VALUE);
 
+        startButton.setStyle(modernPrimaryButtonStyle());
+        splitsButton.setStyle(modernSecondaryButtonStyle());
+        modifyButton.setStyle(modernSecondaryButtonStyle());
+        recordsButton.setStyle(modernSecondaryButtonStyle());
+        logoutButton.setStyle(modernSecondaryButtonStyle());
+
         startButton.setOnAction(e -> startWorkout(username, planForToday));
         splitsButton.setOnAction(e -> showSplitsScreen(username));
         modifyButton.setOnAction(e -> showModifySplitScreen(username));
         recordsButton.setOnAction(e -> showHistoryScreen(username));
         logoutButton.setOnAction(e -> showLoginScreen());
 
-        VBox buttonBox = new VBox(15, startButton, splitsButton, modifyButton, recordsButton, logoutButton);
+        VBox buttonBox = new VBox(12, startButton, splitsButton, modifyButton, recordsButton, logoutButton);
         buttonBox.setFillWidth(true);
 
-        VBox layout = new VBox(25);
-        layout.setPadding(new Insets(25));
-        layout.setAlignment(Pos.TOP_CENTER);
-        layout.getChildren().addAll(topBar, welcomeLabel, planLabel, buttonBox);
+        VBox card = createScreenCard(420);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.getChildren().addAll(topBar, welcomeLabel, planLabel, buttonBox);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private String getWorkoutNameForDay(String splitName, String day) {
@@ -1324,7 +1503,10 @@ public class AppUI extends Application {
 
     private void showSplitsScreen(String username) {
         Label title = new Label("Choose a Split");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Pick a training structure that fits your week");
+        subtitle.setStyle(screenSubtitleStyle());
 
         Button pplButton = new Button("Push Pull Legs");
         Button arnoldButton = new Button("Arnold Split");
@@ -1333,12 +1515,13 @@ public class AppUI extends Application {
         Button customButton = new Button("Create Your Own");
         Button backButton = new Button("Back");
 
-        pplButton.setMaxWidth(Double.MAX_VALUE);
-        arnoldButton.setMaxWidth(Double.MAX_VALUE);
-        upperLowerButton.setMaxWidth(Double.MAX_VALUE);
-        fullBodyButton.setMaxWidth(Double.MAX_VALUE);
-        customButton.setMaxWidth(Double.MAX_VALUE);
+        for (Button button : new Button[]{pplButton, arnoldButton, upperLowerButton, fullBodyButton, customButton}) {
+            button.setMaxWidth(Double.MAX_VALUE);
+            button.setStyle(modernPrimaryButtonStyle());
+        }
+
         backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
 
         pplButton.setOnAction(e -> {
             DatabaseHelper.saveSelectedSplit(username, "Push Pull Legs");
@@ -1371,11 +1554,19 @@ public class AppUI extends Application {
 
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(15, title, pplButton, arnoldButton, upperLowerButton, fullBodyButton, customButton, backButton);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
+        VBox card = createScreenCard(420);
+        card.getChildren().addAll(
+                title,
+                subtitle,
+                pplButton,
+                arnoldButton,
+                upperLowerButton,
+                fullBodyButton,
+                customButton,
+                backButton
+        );
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showModifySplitScreen(String username) {
@@ -1391,7 +1582,7 @@ public class AppUI extends Application {
         final String splitToUse = currentSplit;
 
         Label title = new Label("Current Split: " + splitToUse);
-        title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
 
         VBox daysBox = new VBox(10);
         String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
@@ -1399,20 +1590,23 @@ public class AppUI extends Application {
         for (String day : days) {
             Button dayButton = new Button(day);
             dayButton.setMaxWidth(Double.MAX_VALUE);
+            dayButton.setStyle(modernPrimaryButtonStyle());
+
             final String selectedDay = day;
             dayButton.setOnAction(e -> showModifyDayScreen(username, splitToUse, selectedDay));
+
             daysBox.getChildren().add(dayButton);
         }
 
         Button backButton = new Button("Back");
         backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(20, title, daysBox, backButton);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
+        VBox card = createScreenCard(420);
+        card.getChildren().addAll(title, daysBox, backButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showModifyDayScreen(String username, String splitName, String day) {
@@ -1528,21 +1722,29 @@ public class AppUI extends Application {
 
     private void showHistoryScreen(String username) {
         Label title = new Label("Workout History");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Your recent logged sessions");
+        subtitle.setStyle(screenSubtitleStyle());
 
         ListView<String> historyList = new ListView<>();
         historyList.getItems().addAll(DatabaseHelper.getWorkoutHistory(username));
+        historyList.setPrefHeight(420);
+        historyList.setStyle(
+                "-fx-background-radius: 16;" +
+                        "-fx-border-radius: 16;" +
+                        "-fx-border-color: #d1d5db;"
+        );
 
         Button backButton = new Button("Back");
+        backButton.setStyle(modernSecondaryButtonStyle());
         backButton.setOnAction(e -> showDashboard(username));
+        backButton.setMaxWidth(Double.MAX_VALUE);
 
-        VBox layout = new VBox(20);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        historyList.setPrefHeight(400);
-        layout.getChildren().addAll(title, historyList, backButton);
+        VBox card = createScreenCard(460);
+        card.getChildren().addAll(title, subtitle, historyList, backButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     public static void main(String[] args) {
@@ -1844,5 +2046,100 @@ public class AppUI extends Application {
         seedDayIfEmpty(username, splitName, "Monday", getFullBodyExercises());
         seedDayIfEmpty(username, splitName, "Wednesday", getFullBodyExercises());
         seedDayIfEmpty(username, splitName, "Friday", getFullBodyExercises());
+    }
+
+    private String modernPrimaryButtonStyle() {
+        return "-fx-background-color: linear-gradient(to right, #111827, #1f2937);" +
+                "-fx-text-fill: white;" +
+                "-fx-font-size: 15px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 16;" +
+                "-fx-padding: 14 18 14 18;";
+    }
+
+    private String modernSecondaryButtonStyle() {
+        return "-fx-background-color: #ffffff;" +
+                "-fx-text-fill: #111827;" +
+                "-fx-font-size: 15px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 16;" +
+                "-fx-border-color: #d1d5db;" +
+                "-fx-border-radius: 16;" +
+                "-fx-padding: 14 18 14 18;";
+    }
+
+    private String modernFieldStyle() {
+        return "-fx-background-color: white;" +
+                "-fx-background-radius: 14;" +
+                "-fx-border-color: #d1d5db;" +
+                "-fx-border-radius: 14;" +
+                "-fx-padding: 12 14 12 14;" +
+                "-fx-font-size: 14px;";
+    }
+
+    private boolean isValidUsername(String username) {
+        if (username == null) return false;
+        return username.matches("^[A-Za-z0-9_]{4,20}$");
+    }
+
+    private boolean isValidPassword(String password) {
+        if (password == null) return false;
+        return password.matches("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d).{8,}$");
+    }
+
+    private boolean isValidEmailFormat(String email) {
+        if (email == null) return false;
+        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+
+    private Label createMatchIndicator() {
+        Label indicator = new Label("○");
+        indicator.setStyle("-fx-font-size: 18px; -fx-text-fill: #9ca3af;");
+        return indicator;
+    }
+
+    private void updateMatchIndicator(Label indicator, boolean matches) {
+        indicator.setText(matches ? "✓" : "✕");
+        indicator.setStyle(matches
+                ? "-fx-font-size: 18px; -fx-text-fill: #16a34a; -fx-font-weight: bold;"
+                : "-fx-font-size: 18px; -fx-text-fill: #dc2626; -fx-font-weight: bold;");
+    }
+
+    private String appBackgroundStyle() {
+        return "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);";
+    }
+
+    private String screenCardStyle() {
+        return "-fx-background-color: rgba(255,255,255,0.97);" +
+                "-fx-background-radius: 24;" +
+                "-fx-border-color: #e5e7eb;" +
+                "-fx-border-radius: 24;";
+    }
+
+    private String screenTitleStyle() {
+        return "-fx-font-size: 28px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-text-fill: #111827;";
+    }
+
+    private String screenSubtitleStyle() {
+        return "-fx-font-size: 14px;" +
+                "-fx-text-fill: #6b7280;";
+    }
+
+    private VBox createScreenCard(double maxWidth) {
+        VBox card = new VBox(14);
+        card.setAlignment(Pos.CENTER);
+        card.setMaxWidth(maxWidth);
+        card.setPadding(new Insets(28));
+        card.setStyle(screenCardStyle());
+        return card;
+    }
+
+    private StackPane wrapScreen(Node content) {
+        StackPane wrapper = new StackPane(content);
+        wrapper.setStyle(appBackgroundStyle());
+        wrapper.setPadding(new Insets(30));
+        return wrapper;
     }
 }

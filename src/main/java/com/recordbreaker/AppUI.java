@@ -12,6 +12,11 @@ import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
+import java.io.File;
+
 import java.time.LocalDate;
 import java.time.format.TextStyle;
 import java.util.HashMap;
@@ -26,6 +31,7 @@ public class AppUI extends Application {
 
     @Override
     public void start(Stage stage) {
+        DatabaseHelper.backupDatabase();
         DatabaseHelper.createTables();
 
         mainLayout = new BorderPane();
@@ -632,49 +638,165 @@ public class AppUI extends Application {
     }
 
     private void showProfileScreen(String username) {
-        double[] profile = DatabaseHelper.getProfile(username);
+        String[] profile = DatabaseHelper.getProfileDetails(username);
+
+        String displayName = profile[0].isBlank() ? username : profile[0];
+        String height = profile[1];
+        String weight = profile[2];
+        String profilePicturePath = profile[3];
+
+        String mostLogged = DatabaseHelper.getMostLoggedExercise(username);
+        String heaviestLift = DatabaseHelper.getHeaviestLift(username);
+        String mostImproved = DatabaseHelper.getMostImprovedExercise(username);
+        int streak = DatabaseHelper.getLoggingStreak(username);
+        String dateJoined = DatabaseHelper.getDateJoined(username);
 
         Label title = new Label("Profile");
         title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
 
-        TextField heightField = new TextField();
-        heightField.setPromptText("Height (cm)");
+        Label pictureLabel = new Label();
+        pictureLabel.setPrefSize(100, 100);
+        pictureLabel.setStyle(
+                "-fx-border-color: black;" +
+                        "-fx-border-width: 2;" +
+                        "-fx-alignment: center;" +
+                        "-fx-background-color: #f4f4f4;"
+        );
 
-        TextField weightField = new TextField();
-        weightField.setPromptText("Current Weight (kg)");
-
-        if (profile[0] > 0) {
-            heightField.setText(String.valueOf(profile[0]));
+        if (profilePicturePath != null && !profilePicturePath.isBlank()) {
+            try {
+                Image image = new Image("file:" + profilePicturePath);
+                ImageView imageView = new ImageView(image);
+                imageView.setFitWidth(100);
+                imageView.setFitHeight(100);
+                imageView.setPreserveRatio(true);
+                pictureLabel.setGraphic(imageView);
+            } catch (Exception e) {
+                pictureLabel.setText("No Image");
+            }
+        } else {
+            pictureLabel.setText("No Image");
         }
-        if (profile[1] > 0) {
-            weightField.setText(String.valueOf(profile[1]));
-        }
 
-        Label resultLabel = new Label();
+        Label nameLabel = new Label("Name: " + displayName);
+        Label heightLabel = new Label("Height: " + height + " cm");
+        Label weightLabel = new Label("Weight: " + weight + " kg");
+        Label mostLoggedLabel = new Label("Most Logged Exercise: " + mostLogged);
+        Label heaviestLiftLabel = new Label("Heaviest Lift: " + heaviestLift);
+        Label mostImprovedLabel = new Label("Most Improved: " + mostImproved);
+        Label streakLabel = new Label("Logging Streak: " + streak + " day(s)");
+        Label joinedLabel = new Label("Date Joined: " + dateJoined);
 
-        Button saveButton = new Button("Save Profile");
+        nameLabel.setStyle("-fx-font-size: 16px;");
+        heightLabel.setStyle("-fx-font-size: 16px;");
+        weightLabel.setStyle("-fx-font-size: 16px;");
+        mostLoggedLabel.setStyle("-fx-font-size: 16px;");
+        heaviestLiftLabel.setStyle("-fx-font-size: 16px;");
+        mostImprovedLabel.setStyle("-fx-font-size: 16px;");
+        streakLabel.setStyle("-fx-font-size: 16px;");
+        joinedLabel.setStyle("-fx-font-size: 16px;");
+
+        Button editButton = new Button("Edit Profile");
         Button backButton = new Button("Back");
 
-        saveButton.setMaxWidth(Double.MAX_VALUE);
+        editButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
 
-        saveButton.setOnAction(e -> {
-            try {
-                double height = Double.parseDouble(heightField.getText());
-                double weight = Double.parseDouble(weightField.getText());
-                DatabaseHelper.saveProfile(username, height, weight);
-                resultLabel.setText("Profile saved!");
-            } catch (NumberFormatException ex) {
-                resultLabel.setText("Please enter valid numbers.");
-            }
-        });
-
+        editButton.setOnAction(e -> showEditProfileScreen(username));
         backButton.setOnAction(e -> showDashboard(username));
 
         VBox layout = new VBox(15);
         layout.setPadding(new Insets(30));
         layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, heightField, weightField, saveButton, backButton, resultLabel);
+
+        layout.getChildren().addAll(
+                title,
+                pictureLabel,
+                nameLabel,
+                heightLabel,
+                weightLabel,
+                mostLoggedLabel,
+                heaviestLiftLabel,
+                mostImprovedLabel,
+                streakLabel,
+                joinedLabel,
+                editButton,
+                backButton
+        );
+
+        ScrollPane scrollPane = new ScrollPane(layout);
+        scrollPane.setFitToWidth(true);
+
+        mainLayout.setCenter(scrollPane);
+    }
+
+    private void showEditProfileScreen(String username) {
+        String[] profile = DatabaseHelper.getProfileDetails(username);
+
+        TextField nameField = new TextField(profile[0]);
+        nameField.setPromptText("Display Name");
+
+        TextField heightField = new TextField(profile[1].equals("0.0") ? "" : profile[1]);
+        heightField.setPromptText("Height (cm)");
+
+        TextField weightField = new TextField(profile[2].equals("0.0") ? "" : profile[2]);
+        weightField.setPromptText("Weight (kg)");
+
+        TextField pictureField = new TextField(profile[3]);
+        pictureField.setPromptText("Profile Picture Path");
+
+        Button browseButton = new Button("Browse");
+        Button saveButton = new Button("Save Changes");
+        Button backButton = new Button("Cancel");
+        Label resultLabel = new Label();
+
+        browseButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Choose Profile Picture");
+            fileChooser.getExtensionFilters().addAll(
+                    new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg")
+            );
+
+            File selectedFile = fileChooser.showOpenDialog(root.getScene().getWindow());
+            if (selectedFile != null) {
+                pictureField.setText(selectedFile.getAbsolutePath());
+            }
+        });
+
+        saveButton.setOnAction(e -> {
+            try {
+                String displayName = nameField.getText().trim();
+                double height = heightField.getText().isBlank() ? 0 : Double.parseDouble(heightField.getText());
+                double weight = weightField.getText().isBlank() ? 0 : Double.parseDouble(weightField.getText());
+                String profilePicture = pictureField.getText().trim();
+
+                DatabaseHelper.saveProfile(username, displayName, height, weight, profilePicture);
+                showProfileScreen(username);
+
+            } catch (NumberFormatException ex) {
+                resultLabel.setText("Please enter valid numbers for height and weight.");
+            }
+        });
+
+        backButton.setOnAction(e -> showProfileScreen(username));
+
+        HBox pictureRow = new HBox(10, pictureField, browseButton);
+        pictureRow.setAlignment(Pos.CENTER);
+
+        VBox layout = new VBox(15);
+        layout.setPadding(new Insets(30));
+        layout.setAlignment(Pos.CENTER);
+
+        layout.getChildren().addAll(
+                new Label("Edit Profile"),
+                nameField,
+                heightField,
+                weightField,
+                pictureRow,
+                saveButton,
+                backButton,
+                resultLabel
+        );
 
         mainLayout.setCenter(layout);
     }

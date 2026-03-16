@@ -5,6 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import org.mindrot.jbcrypt.BCrypt;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public class DatabaseHelper {
 
     private static final String DB_URL = "jdbc:sqlite:record_breaker.db";
@@ -15,21 +22,26 @@ public class DatabaseHelper {
 
     public static void createTables() {
         String usersTable = """
-            CREATE TABLE IF NOT EXISTS users (
-                username TEXT PRIMARY KEY,
-                email TEXT NOT NULL,
-                password TEXT NOT NULL
-            );
-            """;
+    CREATE TABLE IF NOT EXISTS users (
+        username TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        password TEXT NOT NULL,
+        date_joined TEXT DEFAULT CURRENT_DATE
+    );
+    """;
 
         String profilesTable = """
-            CREATE TABLE IF NOT EXISTS profiles (
-                username TEXT PRIMARY KEY,
-                height REAL DEFAULT 0,
-                weight REAL DEFAULT 0,
-                FOREIGN KEY (username) REFERENCES users(username)
-            );
-            """;
+    CREATE TABLE IF NOT EXISTS profiles (
+        username TEXT PRIMARY KEY,
+        display_name TEXT,
+        height REAL DEFAULT 0,
+        weight REAL DEFAULT 0,
+        profile_picture TEXT,
+        FOREIGN KEY (username) REFERENCES users(username)
+    );
+    """;
+
+
 
         String workoutsTable = """
             CREATE TABLE IF NOT EXISTS workouts (
@@ -137,24 +149,241 @@ public class DatabaseHelper {
         return false;
     }
 
-    public static void saveProfile(String username, double height, double weight) {
+    public static void saveProfile(String username, String displayName, double height, double weight, String profilePicture) {
         String updateSql = """
-        INSERT INTO profiles(username, height, weight)
-        VALUES (?, ?, ?)
+        INSERT INTO profiles(username, display_name, height, weight, profile_picture)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(username) DO UPDATE SET
+            display_name = excluded.display_name,
             height = excluded.height,
-            weight = excluded.weight
+            weight = excluded.weight,
+            profile_picture = excluded.profile_picture
         """;
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(updateSql)) {
 
             stmt.setString(1, username);
-            stmt.setDouble(2, height);
-            stmt.setDouble(3, weight);
+            stmt.setString(2, displayName);
+            stmt.setDouble(3, height);
+            stmt.setDouble(4, weight);
+            stmt.setString(5, profilePicture);
             stmt.executeUpdate();
 
         } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getMostLoggedExercise(String username) {
+        String sql = """
+        SELECT exercise, COUNT(*) as total
+        FROM workouts
+        WHERE username = ?
+        GROUP BY exercise
+        ORDER BY total DESC
+        LIMIT 1
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("exercise");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "N/A";
+    }
+
+    public static String getHeaviestLift(String username) {
+        String sql = """
+        SELECT exercise, MAX(weight) as max_weight
+        FROM workouts
+        WHERE username = ?
+        GROUP BY exercise
+        ORDER BY max_weight DESC
+        LIMIT 1
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("exercise") + " - " + rs.getDouble("max_weight") + "kg";
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "N/A";
+    }
+
+    public static String getMostImprovedExercise(String username) {
+        String sql = """
+        SELECT exercise, (MAX(weight) - MIN(weight)) as improvement
+        FROM workouts
+        WHERE username = ?
+        GROUP BY exercise
+        ORDER BY improvement DESC
+        LIMIT 1
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("exercise") + " (+" + rs.getDouble("improvement") + "kg)";
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "N/A";
+    }
+
+    public static String getDateJoined(String username) {
+        String sql = "SELECT date_joined FROM users WHERE username = ?";
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("date_joined");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "N/A";
+    }
+
+    public static int getLoggingStreak(String username) {
+        String sql = """
+        SELECT DISTINCT DATE(created_at) as workout_date
+        FROM workouts
+        WHERE username = ?
+        ORDER BY workout_date DESC
+        """;
+
+        List<String> dates = new ArrayList<>();
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                dates.add(rs.getString("workout_date"));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+
+        if (dates.isEmpty()) {
+            return 0;
+        }
+
+        int streak = 0;
+        java.time.LocalDate current = java.time.LocalDate.now();
+
+        for (String dateStr : dates) {
+            java.time.LocalDate workoutDate = java.time.LocalDate.parse(dateStr);
+
+            if (workoutDate.equals(current)) {
+                streak++;
+                current = current.minusDays(1);
+            } else if (workoutDate.equals(current.minusDays(1)) && streak == 0) {
+                streak++;
+                current = current.minusDays(2);
+            } else if (workoutDate.equals(current)) {
+                streak++;
+                current = current.minusDays(1);
+            } else {
+                break;
+            }
+        }
+
+        return streak;
+    }
+
+    public static String[] getProfileDetails(String username) {
+        String sql = """
+        SELECT display_name, height, weight, profile_picture
+        FROM profiles
+        WHERE username = ?
+        """;
+
+        String[] profile = new String[]{"", "0", "0", ""};
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                profile[0] = rs.getString("display_name") != null ? rs.getString("display_name") : "";
+                profile[1] = String.valueOf(rs.getDouble("height"));
+                profile[2] = String.valueOf(rs.getDouble("weight"));
+                profile[3] = rs.getString("profile_picture") != null ? rs.getString("profile_picture") : "";
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return profile;
+    }
+
+    public static void backupDatabase() {
+        try {
+            File dbFile = new File("recordbreaker.db");
+
+            if (!dbFile.exists()) {
+                return; // no database yet
+            }
+
+            File backupDir = new File("backups");
+            if (!backupDir.exists()) {
+                backupDir.mkdir();
+            }
+
+            String timestamp = LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm"));
+
+            File backupFile = new File("backups/recordbreaker_" + timestamp + ".db");
+
+            Files.copy(
+                    dbFile.toPath(),
+                    backupFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            System.out.println("Database backup created: " + backupFile.getName());
+
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

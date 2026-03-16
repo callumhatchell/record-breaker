@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import org.mindrot.jbcrypt.BCrypt;
+import java.util.Collections;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,16 +45,17 @@ public class DatabaseHelper {
 
 
         String workoutsTable = """
-            CREATE TABLE IF NOT EXISTS workouts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL,
-                exercise TEXT NOT NULL,
-                weight REAL NOT NULL,
-                reps INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (username) REFERENCES users(username)
-            );
-            """;
+    CREATE TABLE IF NOT EXISTS workouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        exercise TEXT NOT NULL,
+        weight REAL NOT NULL,
+        reps INTEGER NOT NULL,
+        is_warmup INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (username) REFERENCES users(username)
+    );
+    """;
 
         String selectedSplitsTable = """
             CREATE TABLE IF NOT EXISTS selected_splits (
@@ -92,6 +94,8 @@ public class DatabaseHelper {
             stmt.execute(selectedSplitsTable);
             stmt.execute(splitExercisesTable);
             stmt.execute(alternativesTable);
+
+            ensureWorkoutWarmupColumn();
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -206,7 +210,7 @@ public class DatabaseHelper {
         String sql = """
         SELECT exercise, MAX(weight) as max_weight
         FROM workouts
-        WHERE username = ?
+        WHERE username = ? AND is_warmup = 0
         GROUP BY exercise
         ORDER BY max_weight DESC
         LIMIT 1
@@ -229,11 +233,86 @@ public class DatabaseHelper {
         return "N/A";
     }
 
+    public static List<String> getLastLoggedSetsForExercise(String username, String exercise) {
+        List<String> sets = new ArrayList<>();
+
+        String sql = """
+        SELECT weight, reps
+        FROM workouts
+        WHERE username = ? AND exercise = ? AND is_warmup = 0
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 3
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+
+            ResultSet rs = stmt.executeQuery();
+
+            List<String> temp = new ArrayList<>();
+            while (rs.next()) {
+                double weight = rs.getDouble("weight");
+                int reps = rs.getInt("reps");
+                temp.add(weight + "kg x " + reps);
+            }
+
+            Collections.reverse(temp);
+
+            for (int i = 0; i < temp.size(); i++) {
+                sets.add((i + 1) + ": " + temp.get(i));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return sets;
+    }
+
+    public static double getEstimatedOneRepMax(String username, String exercise) {
+        String sql = """
+        SELECT weight, reps
+        FROM workouts
+        WHERE username = ? AND exercise = ? AND is_warmup = 0
+        """;
+
+        double bestEstimate = 0.0;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                double weight = rs.getDouble("weight");
+                int reps = rs.getInt("reps");
+
+                if (reps > 0) {
+                    double estimate = weight * (1.0 + (reps / 30.0));
+                    if (estimate > bestEstimate) {
+                        bestEstimate = estimate;
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return Math.round(bestEstimate * 10.0) / 10.0;
+    }
+
     public static String getMostImprovedExercise(String username) {
         String sql = """
         SELECT exercise, (MAX(weight) - MIN(weight)) as improvement
         FROM workouts
-        WHERE username = ?
+        WHERE username = ? AND is_warmup = 0
         GROUP BY exercise
         ORDER BY improvement DESC
         LIMIT 1
@@ -411,7 +490,11 @@ public class DatabaseHelper {
     }
 
     public static void saveWorkout(String username, String exercise, double weight, int reps) {
-        String sql = "INSERT INTO workouts(username, exercise, weight, reps) VALUES (?, ?, ?, ?)";
+        saveWorkout(username, exercise, weight, reps, false);
+    }
+
+    public static void saveWorkout(String username, String exercise, double weight, int reps, boolean isWarmup) {
+        String sql = "INSERT INTO workouts(username, exercise, weight, reps, is_warmup) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -420,7 +503,33 @@ public class DatabaseHelper {
             stmt.setString(2, exercise);
             stmt.setDouble(3, weight);
             stmt.setInt(4, reps);
+            stmt.setInt(5, isWarmup ? 1 : 0);
             stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void ensureWorkoutWarmupColumn() {
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+
+            ResultSet rs = stmt.executeQuery("PRAGMA table_info(workouts)");
+            boolean hasWarmupColumn = false;
+
+            while (rs.next()) {
+                String columnName = rs.getString("name");
+                if ("is_warmup".equalsIgnoreCase(columnName)) {
+                    hasWarmupColumn = true;
+                    break;
+                }
+            }
+
+            if (!hasWarmupColumn) {
+                stmt.executeUpdate("ALTER TABLE workouts ADD COLUMN is_warmup INTEGER NOT NULL DEFAULT 0");
+                System.out.println("Added is_warmup column to workouts table.");
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -429,10 +538,10 @@ public class DatabaseHelper {
 
     public static int getBestReps(String username, String exercise, double weight) {
         String sql = """
-            SELECT MAX(reps) AS best_reps
-            FROM workouts
-            WHERE username = ? AND exercise = ? AND weight = ?
-            """;
+        SELECT MAX(reps) AS best_reps
+        FROM workouts
+        WHERE username = ? AND exercise = ? AND weight = ? AND is_warmup = 0
+        """;
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -455,11 +564,11 @@ public class DatabaseHelper {
 
     public static List<String> getWorkoutHistory(String username) {
         String sql = """
-            SELECT exercise, weight, reps, created_at
-            FROM workouts
-            WHERE username = ?
-            ORDER BY created_at DESC
-            """;
+        SELECT exercise, weight, reps, is_warmup, created_at
+        FROM workouts
+        WHERE username = ?
+        ORDER BY created_at DESC
+        """;
 
         List<String> history = new ArrayList<>();
 
@@ -470,7 +579,11 @@ public class DatabaseHelper {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                String entry = rs.getString("exercise") + " - "
+                boolean isWarmup = rs.getInt("is_warmup") == 1;
+                String prefix = isWarmup ? "[Warm-up] " : "";
+
+                String entry = prefix
+                        + rs.getString("exercise") + " - "
                         + rs.getDouble("weight") + "kg x "
                         + rs.getInt("reps") + " reps ("
                         + rs.getString("created_at") + ")";

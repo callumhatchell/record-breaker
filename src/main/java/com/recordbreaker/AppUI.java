@@ -11,6 +11,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Optional;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -385,41 +388,181 @@ public class AppUI extends Application {
     }
 
     private void showCustomWorkout(String username, String workoutTitle, String[] exercises, int currentIndex) {
-        Label title = new Label(workoutTitle);
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-
-        VBox exerciseBox = new VBox(12);
-        exerciseBox.setAlignment(Pos.CENTER);
-
-        for (int i = 0; i < exercises.length; i++) {
-            Button exerciseButton = new Button(exercises[i]);
-            exerciseButton.setMaxWidth(Double.MAX_VALUE);
-
-            final int index = i;
-            exerciseButton.setOnAction(e -> showSetLoggerScreen(username, workoutTitle, exercises, index));
-
-            if (i == currentIndex) {
-                exerciseButton.setStyle("-fx-font-weight: bold; -fx-background-color: #dbeafe;");
-            }
-
-            exerciseBox.getChildren().add(exerciseButton);
+        if (exercises == null || exercises.length == 0) {
+            showWorkoutComplete(username);
+            return;
         }
 
-        Button finishButton = new Button("Finish Workout");
-        Button backButton = new Button("Back");
+        if (currentIndex < 0) {
+            currentIndex = 0;
+        }
 
-        finishButton.setMaxWidth(Double.MAX_VALUE);
-        backButton.setMaxWidth(Double.MAX_VALUE);
+        String currentExercise = exercises[currentIndex];
 
-        finishButton.setOnAction(e -> showWorkoutComplete(username));
-        backButton.setOnAction(e -> showDashboard(username));
+        Label title = new Label(currentExercise.toUpperCase());
+        title.setStyle(
+                "-fx-font-size: 30px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #111827;"
+        );
 
-        VBox layout = new VBox(20);
+        Label subtitle = new Label(workoutTitle);
+        subtitle.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-text-fill: #6b7280;"
+        );
+
+        StackPane imageCard = new StackPane();
+        imageCard.setPrefSize(260, 260);
+        imageCard.setMaxSize(260, 260);
+        imageCard.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 30;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 30;" +
+                        "-fx-border-width: 2;"
+        );
+
+        Label iconLabel = new Label(getExerciseIcon(currentExercise));
+        iconLabel.setStyle("-fx-font-size: 90px;");
+
+        imageCard.getChildren().add(iconLabel);
+
+        Button backButton = new Button("⬅ Back");
+        Button changeButton = new Button("⇄ Change");
+        Button nextButton = new Button("Log Sets");
+
+        backButton.setPrefWidth(110);
+        changeButton.setPrefWidth(110);
+        nextButton.setPrefWidth(110);
+
+        backButton.setStyle(modernNavButtonStyle());
+        changeButton.setStyle(modernNavButtonStyle());
+        nextButton.setStyle(modernNavButtonStyle());
+
+        final int indexToUse = currentIndex;
+
+        backButton.setOnAction(e -> {
+            if (indexToUse > 0) {
+                showCustomWorkout(username, workoutTitle, exercises, indexToUse - 1);
+            }
+        });
+
+        changeButton.setOnAction(e -> showChangeExerciseDialog(username, workoutTitle, exercises, indexToUse));
+
+        nextButton.setOnAction(e -> {
+            showSetLoggerScreen(username, workoutTitle, exercises, indexToUse);
+        });
+
+        if (currentIndex == 0) {
+            backButton.setVisible(false);
+            backButton.setManaged(false);
+        }
+
+        HBox bottomBar = new HBox(15, backButton, changeButton, nextButton);
+        bottomBar.setAlignment(Pos.CENTER);
+
+        Region spacerTop = new Region();
+        Region spacerBottom = new Region();
+        VBox.setVgrow(spacerTop, Priority.ALWAYS);
+        VBox.setVgrow(spacerBottom, Priority.ALWAYS);
+
+        VBox layout = new VBox(18);
         layout.setPadding(new Insets(30));
         layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, exerciseBox, finishButton, backButton);
+        layout.setStyle("-fx-background-color: #f8fafc;");
+        layout.getChildren().addAll(
+                subtitle,
+                spacerTop,
+                imageCard,
+                title,
+                spacerBottom,
+                bottomBar
+        );
 
         mainLayout.setCenter(layout);
+    }
+
+    private void showChangeExerciseDialog(String username, String workoutTitle, String[] exercises, int currentIndex) {
+        String currentExercise = exercises[currentIndex];
+
+        List<String> allExercises = new ArrayList<>();
+        allExercises.addAll(Arrays.asList(
+                "Bench Press",
+                "Incline Dumbbell Bench Press",
+                "Machine Pec Fly",
+                "Tricep Pushdown",
+                "Overhead Extension",
+                "Dips",
+                "Dumbbell Shoulder Press",
+                "Cable Lateral Raise",
+                "Lat Pulldown",
+                "Close Grip Lat Pulldown",
+                "Cable Row",
+                "Cable Face Pulls",
+                "Dumbbell Shrugs",
+                "Preacher Curls",
+                "Incline Dumbbell Curls",
+                "Reverse Wrist Curls",
+                "Squats",
+                "Leg Extension",
+                "Leg Curl",
+                "Calf Raise"
+        ));
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(currentExercise, allExercises);
+        dialog.setTitle("Change Exercise");
+        dialog.setHeaderText("Choose a replacement for " + currentExercise);
+        dialog.setContentText("Exercise:");
+
+        ButtonType alternativesButtonType = new ButtonType("Alternatives");
+        dialog.getDialogPane().getButtonTypes().add(alternativesButtonType);
+
+        dialog.setResultConverter(button -> {
+            if (button == alternativesButtonType) {
+                return "__ALTERNATIVES__";
+            }
+            if (button == ButtonType.OK) {
+                return dialog.getSelectedItem();
+            }
+            return null;
+        });
+
+        Optional<String> result = dialog.showAndWait();
+
+        if (result.isPresent()) {
+            if (result.get().equals("__ALTERNATIVES__")) {
+                showAlternativesPicker(username, workoutTitle, exercises, currentIndex, currentExercise);
+            } else {
+                exercises[currentIndex] = result.get();
+                showCustomWorkout(username, workoutTitle, exercises, currentIndex);
+            }
+        }
+    }
+
+    private void showAlternativesPicker(String username, String workoutTitle, String[] exercises, int currentIndex, String currentExercise) {
+        List<String> alternatives = DatabaseHelper.getAlternatives(currentExercise);
+
+        if (alternatives.isEmpty()) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Alternatives");
+            alert.setHeaderText(null);
+            alert.setContentText("No alternatives found for " + currentExercise + ".");
+            alert.showAndWait();
+            return;
+        }
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(alternatives.get(0), alternatives);
+        dialog.setTitle("Exercise Alternatives");
+        dialog.setHeaderText("Alternatives for " + currentExercise);
+        dialog.setContentText("Choose one:");
+
+        Optional<String> result = dialog.showAndWait();
+
+        result.ifPresent(selected -> {
+            exercises[currentIndex] = selected;
+            showCustomWorkout(username, workoutTitle, exercises, currentIndex);
+        });
     }
 
     private void showPushWorkout(String username) {
@@ -546,95 +689,273 @@ public class AppUI extends Application {
     private void showSetLoggerScreen(String username, String workoutType, String[] exercises, int currentIndex) {
         String exercise = exercises[currentIndex];
 
-        Label title = new Label(exercise);
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        List<String> previousSets = DatabaseHelper.getLastLoggedSetsForExercise(username, exercise);
+        double estimatedOneRepMax = DatabaseHelper.getEstimatedOneRepMax(username, exercise);
 
-        Label subtitle = new Label("Enter up to 3 sets");
-        subtitle.setStyle("-fx-font-size: 16px;");
+        Label title = new Label(exercise.toUpperCase());
+        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #111827;");
 
-        TextField set1WeightField = new TextField();
-        set1WeightField.setPromptText("Set 1 Weight (kg)");
+        Label subtitle = new Label("Log your sets");
+        subtitle.setStyle("-fx-font-size: 15px; -fx-text-fill: #6b7280;");
 
-        TextField set1RepsField = new TextField();
-        set1RepsField.setPromptText("Set 1 Reps");
+        StackPane imageCard = new StackPane();
+        imageCard.setPrefSize(180, 180);
+        imageCard.setMaxSize(180, 180);
+        imageCard.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 24;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 24;" +
+                        "-fx-border-width: 2;"
+        );
 
-        TextField set2WeightField = new TextField();
-        set2WeightField.setPromptText("Set 2 Weight (kg)");
+        Label oneRepMaxLabel = new Label(
+                estimatedOneRepMax > 0
+                        ? "Estimated 1RM: " + estimatedOneRepMax + "kg"
+                        : "Estimated 1RM: N/A"
+        );
+        oneRepMaxLabel.setStyle(
+                "-fx-font-size: 16px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #111827;"
+        );
 
-        TextField set2RepsField = new TextField();
-        set2RepsField.setPromptText("Set 2 Reps");
+        VBox previousSetsBox = new VBox(6);
+        previousSetsBox.setAlignment(Pos.CENTER_LEFT);
+        previousSetsBox.setMaxWidth(320);
+        previousSetsBox.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 18;" +
+                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-radius: 18;" +
+                        "-fx-padding: 14;"
+        );
 
-        TextField set3WeightField = new TextField();
-        set3WeightField.setPromptText("Set 3 Weight (kg)");
+        Label previousTitle = new Label("Previous Working Sets");
+        previousTitle.setStyle(
+                "-fx-font-size: 15px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #111827;"
+        );
+        previousSetsBox.getChildren().add(previousTitle);
 
-        TextField set3RepsField = new TextField();
-        set3RepsField.setPromptText("Set 3 Reps");
+        if (previousSets.isEmpty()) {
+            Label emptyLabel = new Label("No previous sets logged yet.");
+            emptyLabel.setStyle("-fx-text-fill: #6b7280; -fx-font-size: 14px;");
+            previousSetsBox.getChildren().add(emptyLabel);
+        } else {
+            for (String setText : previousSets) {
+                Label setLabel = new Label(setText);
+                setLabel.setStyle("-fx-text-fill: #374151; -fx-font-size: 14px;");
+                previousSetsBox.getChildren().add(setLabel);
+            }
+        }
 
-        Button saveButton = new Button("Save Sets");
-        Button backButton = new Button("Back");
-        Button nextButton = new Button("Next →");
+        Label iconLabel = new Label(getExerciseIcon(exercise));
+        iconLabel.setStyle("-fx-font-size: 70px;");
+        imageCard.getChildren().add(iconLabel);
 
-        saveButton.setMaxWidth(Double.MAX_VALUE);
-        backButton.setMaxWidth(Double.MAX_VALUE);
-        nextButton.setMaxWidth(Double.MAX_VALUE);
+        VBox setsContainer = new VBox(12);
+        setsContainer.setFillWidth(true);
+        setsContainer.setAlignment(Pos.CENTER);
+
+        class SetRow {
+            boolean warmup = false;
+            Button badgeButton;
+            TextField weightField;
+            TextField repsField;
+            HBox row;
+        }
+
+        List<SetRow> setRows = new ArrayList<>();
+
+        Runnable[] refreshBadges = new Runnable[1];
+        refreshBadges[0] = () -> {
+            int workingSetNumber = 1;
+            for (SetRow setRow : setRows) {
+                if (setRow.warmup) {
+                    setRow.badgeButton.setText("W");
+                    setRow.badgeButton.setStyle(
+                            "-fx-background-color: #f59e0b;" +
+                                    "-fx-text-fill: white;" +
+                                    "-fx-font-weight: bold;" +
+                                    "-fx-font-size: 14px;" +
+                                    "-fx-background-radius: 20;" +
+                                    "-fx-min-width: 42;" +
+                                    "-fx-min-height: 42;" +
+                                    "-fx-max-width: 42;" +
+                                    "-fx-max-height: 42;"
+                    );
+                } else {
+                    setRow.badgeButton.setText(String.valueOf(workingSetNumber));
+                    setRow.badgeButton.setStyle(
+                            "-fx-background-color: #111827;" +
+                                    "-fx-text-fill: white;" +
+                                    "-fx-font-weight: bold;" +
+                                    "-fx-font-size: 14px;" +
+                                    "-fx-background-radius: 20;" +
+                                    "-fx-min-width: 42;" +
+                                    "-fx-min-height: 42;" +
+                                    "-fx-max-width: 42;" +
+                                    "-fx-max-height: 42;"
+                    );
+                    workingSetNumber++;
+                }
+            }
+        };
+
+        java.util.function.Consumer<Boolean> addSetRow = isWarmup -> {
+            SetRow setRow = new SetRow();
+            setRow.warmup = isWarmup;
+
+            Button badgeButton = new Button();
+            setRow.badgeButton = badgeButton;
+
+            TextField weightField = new TextField();
+            weightField.setPromptText("Weight (kg)");
+            weightField.setPrefWidth(140);
+            setRow.weightField = weightField;
+
+            TextField repsField = new TextField();
+            repsField.setPromptText("Reps");
+            repsField.setPrefWidth(100);
+            setRow.repsField = repsField;
+
+            Button removeButton = new Button("✕");
+            removeButton.setStyle(
+                    "-fx-background-color: #fee2e2;" +
+                            "-fx-text-fill: #b91c1c;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-background-radius: 18;"
+            );
+
+            badgeButton.setOnAction(e -> {
+                setRow.warmup = !setRow.warmup;
+                refreshBadges[0].run();
+            });
+
+            removeButton.setOnAction(e -> {
+                setRows.remove(setRow);
+                setsContainer.getChildren().remove(setRow.row);
+                refreshBadges[0].run();
+            });
+
+            HBox row = new HBox(10, badgeButton, weightField, repsField, removeButton);
+            row.setAlignment(Pos.CENTER);
+            setRow.row = row;
+
+            setRows.add(setRow);
+            setsContainer.getChildren().add(row);
+
+            refreshBadges[0].run();
+        };
+
+        addSetRow.accept(false);
+        addSetRow.accept(false);
+        addSetRow.accept(false);
+
+        Button addSetButton = new Button("+ Add Set");
+        addSetButton.setStyle(modernNavButtonStyle());
+        addSetButton.setOnAction(e -> addSetRow.accept(false));
+
+        Button doneButton = new Button("Done");
+        Button cancelButton = new Button("Cancel");
+
+        doneButton.setMaxWidth(Double.MAX_VALUE);
+        cancelButton.setMaxWidth(Double.MAX_VALUE);
+
+        doneButton.setStyle(modernNavButtonStyle());
+        cancelButton.setStyle(modernNavButtonStyle());
 
         Label resultLabel = new Label();
+        resultLabel.setStyle("-fx-text-fill: #374151; -fx-font-size: 14px;");
 
-        saveButton.setOnAction(e -> {
+        doneButton.setOnAction(e -> {
             StringBuilder resultText = new StringBuilder();
             int recordsBroken = 0;
 
             try {
-                recordsBroken += saveSetIfFilled(username, exercise, set1WeightField, set1RepsField, resultText);
-                recordsBroken += saveSetIfFilled(username, exercise, set2WeightField, set2RepsField, resultText);
-                recordsBroken += saveSetIfFilled(username, exercise, set3WeightField, set3RepsField, resultText);
+                for (SetRow setRow : setRows) {
+                    String weightText = setRow.weightField.getText().trim();
+                    String repsText = setRow.repsField.getText().trim();
+
+                    if (weightText.isEmpty() && repsText.isEmpty()) {
+                        continue;
+                    }
+
+                    if (weightText.isEmpty() || repsText.isEmpty()) {
+                        throw new NumberFormatException();
+                    }
+
+                    double weight = Double.parseDouble(weightText);
+                    int reps = Integer.parseInt(repsText);
+
+                    int previousBest = setRow.warmup ? 0 : DatabaseHelper.getBestReps(username, exercise, weight);
+
+                    DatabaseHelper.saveWorkout(username, exercise, weight, reps, setRow.warmup);
+
+                    resultText.append(setRow.warmup ? "[Warm-up] " : "")
+                            .append(exercise)
+                            .append(": ")
+                            .append(weight)
+                            .append("kg x ")
+                            .append(reps)
+                            .append("\n");
+
+                    if (!setRow.warmup && previousBest > 0 && reps > previousBest) {
+                        recordsBroken++;
+                    }
+                }
 
                 if (resultText.length() == 0) {
                     resultLabel.setText("Please enter at least one full set.");
-                } else {
-                    if (recordsBroken > 0) {
-                        resultLabel.setText("🔥 " + recordsBroken + " record(s) broken!\n" + resultText);
-                        showRecordBrokenAnimation();
-                    } else {
-                        resultLabel.setText("Sets saved.\n" + resultText);
-                    }
+                    return;
                 }
+
+                if (recordsBroken > 0) {
+                    showRecordBrokenAnimation();
+                }
+
+                int nextIndex = currentIndex + 1;
+                if (nextIndex < exercises.length) {
+                    showCustomWorkout(username, workoutType, exercises, nextIndex);
+                } else {
+                    showWorkoutComplete(username);
+                }
+
             } catch (NumberFormatException ex) {
                 resultLabel.setText("Please enter valid numbers for weight and reps.");
             }
         });
 
-        backButton.setOnAction(e -> showCustomWorkout(username, workoutType, exercises, currentIndex));
+        cancelButton.setOnAction(e -> showCustomWorkout(username, workoutType, exercises, currentIndex));
 
-        nextButton.setOnAction(e -> {
-            int nextIndex = currentIndex + 1;
-            if (nextIndex < exercises.length) {
-                showSetLoggerScreen(username, workoutType, exercises, nextIndex);
-            } else {
-                showWorkoutComplete(username);
-            }
-        });
+        HBox buttonRow = new HBox(12, cancelButton, doneButton);
+        buttonRow.setAlignment(Pos.CENTER);
+        HBox.setHgrow(cancelButton, Priority.ALWAYS);
+        HBox.setHgrow(doneButton, Priority.ALWAYS);
 
-        HBox navButtons = new HBox(10, backButton, nextButton);
-        navButtons.setAlignment(Pos.CENTER);
-
-        backButton.setMaxWidth(Double.MAX_VALUE);
-        nextButton.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(backButton, Priority.ALWAYS);
-        HBox.setHgrow(nextButton, Priority.ALWAYS);
-
-        VBox layout = new VBox(12);
+        VBox layout = new VBox(14);
         layout.setPadding(new Insets(30));
         layout.setAlignment(Pos.CENTER);
+        layout.setStyle("-fx-background-color: #f8fafc;");
         layout.getChildren().addAll(
-                title, subtitle,
-                set1WeightField, set1RepsField,
-                set2WeightField, set2RepsField,
-                set3WeightField, set3RepsField,
-                saveButton, navButtons, resultLabel
+                imageCard,
+                title,
+                subtitle,
+                oneRepMaxLabel,
+                previousSetsBox,
+                setsContainer,
+                addSetButton,
+                buttonRow,
+                resultLabel
         );
 
-        mainLayout.setCenter(layout);
+        ScrollPane scrollPane = new ScrollPane(layout);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: #f8fafc; -fx-background-color: #f8fafc;");
+
+        mainLayout.setCenter(scrollPane);
     }
 
     private void showProfileScreen(String username) {
@@ -1483,6 +1804,38 @@ public class AppUI extends Application {
         seedDayIfEmpty(username, splitName, "Tuesday", getLowerBodyExercises());
         seedDayIfEmpty(username, splitName, "Thursday", getUpperBodyExercises());
         seedDayIfEmpty(username, splitName, "Friday", getLowerBodyExercises());
+    }
+
+    private String modernNavButtonStyle() {
+        return "-fx-background-color: white;" +
+                "-fx-text-fill: #111827;" +
+                "-fx-font-size: 15px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 18;" +
+                "-fx-border-radius: 18;" +
+                "-fx-border-color: #d1d5db;" +
+                "-fx-padding: 12 18 12 18;";
+    }
+
+    private String getExerciseIcon(String exercise) {
+        String name = exercise.toLowerCase();
+
+        if (name.contains("bench")) return "🏋";
+        if (name.contains("incline")) return "🏋";
+        if (name.contains("pec fly")) return "💪";
+        if (name.contains("pushdown")) return "🦾";
+        if (name.contains("extension")) return "🦾";
+        if (name.contains("dips")) return "🔻";
+        if (name.contains("shoulder")) return "🏋";
+        if (name.contains("lateral")) return "💪";
+        if (name.contains("pulldown")) return "⬇";
+        if (name.contains("row")) return "↔";
+        if (name.contains("curl")) return "💪";
+        if (name.contains("squat")) return "🦵";
+        if (name.contains("leg")) return "🦵";
+        if (name.contains("calf")) return "🦵";
+
+        return "🏋";
     }
 
     private void seedFullBodySplitForUser(String username) {

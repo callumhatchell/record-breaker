@@ -1,0 +1,491 @@
+package com.recordbreaker;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class DatabaseHelper {
+
+    private static final String DB_URL = "jdbc:sqlite:record_breaker.db";
+
+    private static Connection connect() throws SQLException {
+        return DriverManager.getConnection(DB_URL);
+    }
+
+    public static void createTables() {
+        String usersTable = """
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                password TEXT NOT NULL
+            );
+            """;
+
+        String profilesTable = """
+            CREATE TABLE IF NOT EXISTS profiles (
+                username TEXT PRIMARY KEY,
+                height REAL DEFAULT 0,
+                weight REAL DEFAULT 0,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String workoutsTable = """
+            CREATE TABLE IF NOT EXISTS workouts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                exercise TEXT NOT NULL,
+                weight REAL NOT NULL,
+                reps INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String selectedSplitsTable = """
+            CREATE TABLE IF NOT EXISTS selected_splits (
+                username TEXT PRIMARY KEY,
+                split_name TEXT NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String splitExercisesTable = """
+            CREATE TABLE IF NOT EXISTS split_exercises (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                split_name TEXT NOT NULL,
+                day_name TEXT NOT NULL,
+                exercise_name TEXT NOT NULL,
+                exercise_order INTEGER NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String alternativesTable = """
+            CREATE TABLE IF NOT EXISTS exercise_alternatives (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exercise_name TEXT NOT NULL,
+                alternative_name TEXT NOT NULL
+            );
+            """;
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute(usersTable);
+            stmt.execute(profilesTable);
+            stmt.execute(workoutsTable);
+            stmt.execute(selectedSplitsTable);
+            stmt.execute(splitExercisesTable);
+            stmt.execute(alternativesTable);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static boolean createUser(String username, String email, String password) {
+        String checkSql = "SELECT username FROM users WHERE username = ?";
+        String insertSql = "INSERT INTO users(username, email, password) VALUES (?, ?, ?)";
+
+        try (Connection conn = connect();
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+             PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+
+            checkStmt.setString(1, username);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (rs.next()) {
+                return false;
+            }
+
+            insertStmt.setString(1, username);
+            insertStmt.setString(2, email);
+            insertStmt.setString(3, password);
+            insertStmt.executeUpdate();
+
+            return true;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean loginUser(String username, String password) {
+        String sql = "SELECT username FROM users WHERE username = ? AND password = ?";
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void saveProfile(String username, double height, double weight) {
+        String updateSql = """
+            INSERT INTO profiles(username, height, weight)
+            VALUES (?, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+                height = excluded.height,
+                weight = excluded.weight
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+
+            stmt.setString(1, username);
+            stmt.setDouble(2, height);
+            stmt.setDouble(3, weight);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static double[] getProfile(String username) {
+        String sql = "SELECT height, weight FROM profiles WHERE username = ?";
+        double[] profile = new double[]{0, 0};
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                profile[0] = rs.getDouble("height");
+                profile[1] = rs.getDouble("weight");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return profile;
+    }
+
+    public static void saveWorkout(String username, String exercise, double weight, int reps) {
+        String sql = "INSERT INTO workouts(username, exercise, weight, reps) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+            stmt.setDouble(3, weight);
+            stmt.setInt(4, reps);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static int getBestReps(String username, String exercise, double weight) {
+        String sql = """
+            SELECT MAX(reps) AS best_reps
+            FROM workouts
+            WHERE username = ? AND exercise = ? AND weight = ?
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+            stmt.setDouble(3, weight);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("best_reps");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 0;
+    }
+
+    public static List<String> getWorkoutHistory(String username) {
+        String sql = """
+            SELECT exercise, weight, reps, created_at
+            FROM workouts
+            WHERE username = ?
+            ORDER BY created_at DESC
+            """;
+
+        List<String> history = new ArrayList<>();
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String entry = rs.getString("exercise") + " - "
+                        + rs.getDouble("weight") + "kg x "
+                        + rs.getInt("reps") + " reps ("
+                        + rs.getString("created_at") + ")";
+                history.add(entry);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return history;
+    }
+
+    public static void saveSelectedSplit(String username, String splitName) {
+        String sql = """
+            INSERT INTO selected_splits(username, split_name)
+            VALUES (?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+                split_name = excluded.split_name
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, splitName);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getSelectedSplit(String username) {
+        String sql = "SELECT split_name FROM selected_splits WHERE username = ?";
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("split_name");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public static List<String> getExercisesForDay(String username, String splitName, String day) {
+        String sql = """
+            SELECT exercise_name
+            FROM split_exercises
+            WHERE username = ? AND split_name = ? AND day_name = ?
+            ORDER BY exercise_order ASC
+            """;
+
+        List<String> exercises = new ArrayList<>();
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, splitName);
+            stmt.setString(3, day);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                exercises.add(rs.getString("exercise_name"));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return exercises;
+    }
+
+    public static String getWorkoutForDay(String username, String splitName, String day) {
+        List<String> exercises = getExercisesForDay(username, splitName, day);
+
+        if (exercises.isEmpty()) {
+            return "Rest Day";
+        }
+
+        return switch (splitName) {
+            case "Push Pull Legs" -> switch (day) {
+                case "Monday", "Friday" -> "Push Day";
+                case "Tuesday", "Saturday" -> "Pull Day";
+                case "Wednesday", "Sunday" -> "Leg Day";
+                default -> "Rest Day";
+            };
+            case "Arnold Split" -> switch (day) {
+                case "Monday", "Thursday" -> "Chest + Back";
+                case "Tuesday", "Friday" -> "Shoulders + Arms";
+                case "Wednesday", "Saturday" -> "Legs";
+                default -> "Rest Day";
+            };
+            case "Upper Lower" -> switch (day) {
+                case "Monday", "Thursday" -> "Upper Body";
+                case "Tuesday", "Friday" -> "Lower Body";
+                default -> "Rest Day";
+            };
+            case "Full Body" -> switch (day) {
+                case "Monday", "Wednesday", "Friday" -> "Full Body";
+                default -> "Rest Day";
+            };
+            case "Custom Split" -> "Custom Day";
+            default -> "Rest Day";
+        };
+    }
+
+    public static void addExerciseToDay(String username, String splitName, String day, String exerciseName, int order) {
+        String sql = """
+            INSERT INTO split_exercises(username, split_name, day_name, exercise_name, exercise_order)
+            VALUES (?, ?, ?, ?, ?)
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, splitName);
+            stmt.setString(3, day);
+            stmt.setString(4, exerciseName);
+            stmt.setInt(5, order);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void replaceExercise(String username, String splitName, String day, String oldExercise, String newExercise) {
+        String sql = """
+            UPDATE split_exercises
+            SET exercise_name = ?
+            WHERE username = ? AND split_name = ? AND day_name = ? AND exercise_name = ?
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, newExercise);
+            stmt.setString(2, username);
+            stmt.setString(3, splitName);
+            stmt.setString(4, day);
+            stmt.setString(5, oldExercise);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void removeExercise(String username, String splitName, String day, String exercise) {
+        String sql = """
+            DELETE FROM split_exercises
+            WHERE username = ? AND split_name = ? AND day_name = ? AND exercise_name = ?
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, splitName);
+            stmt.setString(3, day);
+            stmt.setString(4, exercise);
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static List<String> getAlternatives(String exercise) {
+        String sql = """
+            SELECT alternative_name
+            FROM exercise_alternatives
+            WHERE exercise_name = ?
+            ORDER BY alternative_name ASC
+            """;
+
+        List<String> alternatives = new ArrayList<>();
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, exercise);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                alternatives.add(rs.getString("alternative_name"));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return alternatives;
+    }
+
+    public static void seedExerciseAlternatives() {
+        insertAlternativeIfMissing("Bench Press", "Dumbbell Bench Press");
+        insertAlternativeIfMissing("Bench Press", "Machine Chest Press");
+        insertAlternativeIfMissing("Incline Dumbbell Bench Press", "Incline Barbell Bench Press");
+        insertAlternativeIfMissing("Machine Pec Fly", "Cable Fly");
+        insertAlternativeIfMissing("Lat Pulldown", "Pull Ups");
+        insertAlternativeIfMissing("Cable Row", "Chest Supported Row");
+        insertAlternativeIfMissing("Dumbbell Shoulder Press", "Machine Shoulder Press");
+        insertAlternativeIfMissing("Cable Lateral Raise", "Dumbbell Lateral Raise");
+        insertAlternativeIfMissing("Tricep Pushdown", "Overhead Tricep Extension");
+        insertAlternativeIfMissing("Preacher Curls", "Barbell Curl");
+        insertAlternativeIfMissing("Squats", "Leg Press");
+        insertAlternativeIfMissing("Leg Curl", "Romanian Deadlift");
+        insertAlternativeIfMissing("Calf Raise", "Seated Calf Raise");
+    }
+
+    private static void insertAlternativeIfMissing(String exerciseName, String alternativeName) {
+        String checkSql = """
+            SELECT 1
+            FROM exercise_alternatives
+            WHERE exercise_name = ? AND alternative_name = ?
+            """;
+
+        String insertSql = """
+            INSERT INTO exercise_alternatives(exercise_name, alternative_name)
+            VALUES (?, ?)
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+             PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+
+            checkStmt.setString(1, exerciseName);
+            checkStmt.setString(2, alternativeName);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (!rs.next()) {
+                insertStmt.setString(1, exerciseName);
+                insertStmt.setString(2, alternativeName);
+                insertStmt.executeUpdate();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}

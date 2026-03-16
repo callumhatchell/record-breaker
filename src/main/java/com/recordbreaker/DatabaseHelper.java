@@ -3,6 +3,7 @@ package com.recordbreaker;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class DatabaseHelper {
 
@@ -100,9 +101,11 @@ public class DatabaseHelper {
                 return false;
             }
 
+            String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+
             insertStmt.setString(1, username);
             insertStmt.setString(2, email);
-            insertStmt.setString(3, password);
+            insertStmt.setString(3, hashedPassword);
             insertStmt.executeUpdate();
 
             return true;
@@ -114,31 +117,34 @@ public class DatabaseHelper {
     }
 
     public static boolean loginUser(String username, String password) {
-        String sql = "SELECT username FROM users WHERE username = ? AND password = ?";
+        String sql = "SELECT password FROM users WHERE username = ?";
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, username);
-            stmt.setString(2, password);
-
             ResultSet rs = stmt.executeQuery();
-            return rs.next();
+
+            if (rs.next()) {
+                String storedHash = rs.getString("password");
+                return BCrypt.checkpw(password, storedHash);
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+
+        return false;
     }
 
     public static void saveProfile(String username, double height, double weight) {
         String updateSql = """
-            INSERT INTO profiles(username, height, weight)
-            VALUES (?, ?, ?)
-            ON CONFLICT(username) DO UPDATE SET
-                height = excluded.height,
-                weight = excluded.weight
-            """;
+        INSERT INTO profiles(username, height, weight)
+        VALUES (?, ?, ?)
+        ON CONFLICT(username) DO UPDATE SET
+            height = excluded.height,
+            weight = excluded.weight
+        """;
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(updateSql)) {

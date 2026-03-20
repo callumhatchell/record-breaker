@@ -1,6 +1,10 @@
 com\recordbreaker\AppUI$1.class
-com\recordbreaker\AppUI.class
-com\recordbreaker\DatabaseHelper$ExerciseProfile.class
+com\recordbreaker\DatabaseHelper$HistorySummary.class
+com\recordbreaker\DatabaseHelper$ExerciseTarget.class
 com\recordbreaker\AppUI$2.class
+com\recordbreaker\DatabaseHelper$RecoveryRegion.class
+com\recordbreaker\AppUI.class
+com\recordbreaker\DatabaseHelper$WarmupSuggestion.class
+com\recordbreaker\DatabaseHelper$ExerciseProfile.class
 com\recordbreaker\AppUI$1SetRow.class
 com\recordbreaker\DatabaseHelper.class

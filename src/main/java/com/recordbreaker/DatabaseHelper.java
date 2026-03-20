@@ -17,7 +17,9 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 
 public class DatabaseHelper {
@@ -27,6 +29,10 @@ public class DatabaseHelper {
     private static Map<String, ExerciseProfile> exerciseProfilesCache;
 
     private record ExerciseProfile(String muscleGroup, String focusArea, String exerciseName) {}
+    public record WarmupSuggestion(double weight, int reps) {}
+    public record ExerciseTarget(String exercise, double targetWeight, int targetReps, String reasoning) {}
+    public record HistorySummary(int sessionsThisWeek, int totalSetsThisWeek, double totalVolumeThisWeek, String strongestTrend) {}
+    public record RecoveryRegion(String region, double score, boolean trainedRecently) {}
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(DB_URL);
@@ -104,6 +110,39 @@ CREATE TABLE IF NOT EXISTS exercise_catalog (
             );
             """;
 
+        String exerciseNotesTable = """
+            CREATE TABLE IF NOT EXISTS exercise_notes (
+                username TEXT NOT NULL,
+                exercise_name TEXT NOT NULL,
+                note_text TEXT NOT NULL DEFAULT '',
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(username, exercise_name),
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String workoutTemplatesTable = """
+            CREATE TABLE IF NOT EXISTS workout_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                template_name TEXT NOT NULL,
+                source_split TEXT,
+                source_day TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (username) REFERENCES users(username)
+            );
+            """;
+
+        String workoutTemplateExercisesTable = """
+            CREATE TABLE IF NOT EXISTS workout_template_exercises (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL,
+                exercise_name TEXT NOT NULL,
+                exercise_order INTEGER NOT NULL,
+                FOREIGN KEY (template_id) REFERENCES workout_templates(id)
+            );
+            """;
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
 
@@ -114,6 +153,9 @@ CREATE TABLE IF NOT EXISTS exercise_catalog (
             stmt.execute(splitExercisesTable);
             stmt.execute(alternativesTable);
             stmt.execute(exerciseCatalogTable);
+            stmt.execute(exerciseNotesTable);
+            stmt.execute(workoutTemplatesTable);
+            stmt.execute(workoutTemplateExercisesTable);
 
             seedExerciseAlternatives();
             seedExerciseCatalog();
@@ -651,6 +693,114 @@ CREATE TABLE IF NOT EXISTS exercise_catalog (
         }
     }
 
+    public static void saveExerciseNote(String username, String exercise, String noteText) {
+        String sql = """
+            INSERT INTO exercise_notes(username, exercise_name, note_text, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(username, exercise_name) DO UPDATE SET
+                note_text = excluded.note_text,
+                updated_at = CURRENT_TIMESTAMP
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+            stmt.setString(3, noteText == null ? "" : noteText.trim());
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getExerciseNote(String username, String exercise) {
+        String sql = "SELECT note_text FROM exercise_notes WHERE username = ? AND exercise_name = ?";
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("note_text");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "";
+    }
+
+    public static ExerciseTarget getSuggestedTarget(String username, String exercise) {
+        String sql = """
+        SELECT weight, reps
+        FROM workouts
+        WHERE username = ? AND exercise = ? AND is_warmup = 0
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 1
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, exercise);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                double lastWeight = rs.getDouble("weight");
+                int lastReps = rs.getInt("reps");
+                double suggestedWeight = lastWeight;
+                int suggestedReps = lastReps;
+                String reasoning = "Match your last best set.";
+
+                if (lastReps >= 8) {
+                    suggestedWeight = roundWeight(lastWeight + 2.5);
+                    reasoning = "You hit 8+ reps last time, so nudge the load up.";
+                } else if (lastReps >= 5) {
+                    suggestedReps = lastReps + 1;
+                    reasoning = "Try to beat your previous reps before adding load.";
+                } else {
+                    reasoning = "Repeat the load and own the reps first.";
+                }
+
+                return new ExerciseTarget(exercise, suggestedWeight, suggestedReps, reasoning);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return new ExerciseTarget(exercise, 0, 8, "No previous data yet. Start with a comfortable working weight.");
+    }
+
+    public static List<WarmupSuggestion> getWarmupSuggestions(String username, String exercise) {
+        List<WarmupSuggestion> suggestions = new ArrayList<>();
+        ExerciseTarget target = getSuggestedTarget(username, exercise);
+        double topWeight = target.targetWeight() > 0 ? target.targetWeight() : Math.max(20, roundWeight(getEstimatedOneRepMax(username, exercise) * 0.7));
+
+        if (topWeight <= 0) {
+            suggestions.add(new WarmupSuggestion(20, 12));
+            suggestions.add(new WarmupSuggestion(30, 8));
+            suggestions.add(new WarmupSuggestion(40, 5));
+            return suggestions;
+        }
+
+        double first = roundWeight(Math.max(20, topWeight * 0.4));
+        double second = roundWeight(Math.max(first + 2.5, topWeight * 0.6));
+        double third = roundWeight(Math.max(second + 2.5, topWeight * 0.8));
+
+        suggestions.add(new WarmupSuggestion(first, 12));
+        suggestions.add(new WarmupSuggestion(second, 8));
+        suggestions.add(new WarmupSuggestion(third, 5));
+        return suggestions;
+    }
+
     public static void ensureWorkoutWarmupColumn() {
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
@@ -735,6 +885,80 @@ CREATE TABLE IF NOT EXISTS exercise_catalog (
         }
 
         return history;
+    }
+
+    public static HistorySummary getHistorySummary(String username) {
+        String weeklySql = """
+        SELECT COUNT(*) AS total_sets,
+               COUNT(DISTINCT DATE(created_at)) AS sessions,
+               COALESCE(SUM(weight * reps), 0) AS total_volume
+        FROM workouts
+        WHERE username = ? AND is_warmup = 0 AND DATE(created_at) >= DATE('now', '-6 day')
+        """;
+
+        int sessions = 0;
+        int totalSets = 0;
+        double totalVolume = 0;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(weeklySql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                totalSets = rs.getInt("total_sets");
+                sessions = rs.getInt("sessions");
+                totalVolume = rs.getDouble("total_volume");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return new HistorySummary(sessions, totalSets, totalVolume, getMostImprovedExercise(username));
+    }
+
+    public static List<RecoveryRegion> getRecoveryRegions(String username) {
+        LinkedHashMap<String, Double> scoreByRegion = new LinkedHashMap<>();
+        for (String region : getBodyMapRegions()) {
+            scoreByRegion.put(region, 0.0);
+        }
+
+        String sql = """
+        SELECT exercise, created_at
+        FROM workouts
+        WHERE username = ? AND is_warmup = 0 AND DATE(created_at) >= DATE('now', '-4 day')
+        ORDER BY datetime(created_at) DESC
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String exercise = rs.getString("exercise");
+                String focusArea = normalizeRecoveryRegion(getFocusAreaForExercise(exercise), getMuscleGroupForExercise(exercise));
+                if (focusArea == null || !scoreByRegion.containsKey(focusArea)) {
+                    continue;
+                }
+
+                LocalDate workoutDate = LocalDate.parse(rs.getString("created_at").substring(0, 10));
+                long daysAgo = ChronoUnit.DAYS.between(workoutDate, LocalDate.now());
+                double impact = Math.max(0.2, 1.0 - (daysAgo * 0.22));
+                scoreByRegion.put(focusArea, Math.min(1.0, scoreByRegion.get(focusArea) + impact));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        List<RecoveryRegion> regions = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : scoreByRegion.entrySet()) {
+            regions.add(new RecoveryRegion(entry.getKey(), entry.getValue(), entry.getValue() > 0.2));
+        }
+        return regions;
     }
 
     public static void saveSelectedSplit(String username, String splitName) {
@@ -1082,6 +1306,79 @@ CREATE TABLE IF NOT EXISTS exercise_catalog (
             return profile.focusArea();
         }
         return "";
+    }
+
+    private static double roundWeight(double weight) {
+        return Math.round(weight * 2.0) / 2.0;
+    }
+
+    private static List<String> getBodyMapRegions() {
+        return List.of(
+                "Upper Chest",
+                "Mid Chest",
+                "Lower Chest",
+                "Front Delts",
+                "Side Delts",
+                "Rear Delts",
+                "Lats",
+                "Mid Back",
+                "Upper Traps",
+                "Spinal Erectors",
+                "Long Head",
+                "Lateral Head",
+                "Medial Head",
+                "Biceps Long Head",
+                "Biceps Short Head",
+                "Forearms",
+                "Abs",
+                "Obliques",
+                "Quads",
+                "Hamstrings",
+                "Glutes",
+                "Calves"
+        );
+    }
+
+    private static String normalizeRecoveryRegion(String focusArea, String muscleGroup) {
+        if (focusArea == null || focusArea.isBlank()) {
+            return switch (muscleGroup) {
+                case "Chest" -> "Mid Chest";
+                case "Back" -> "Mid Back";
+                case "Shoulders" -> "Front Delts";
+                case "Triceps" -> "Long Head";
+                case "Biceps" -> "Biceps Long Head";
+                case "Forearms" -> "Forearms";
+                case "Core" -> "Abs";
+                case "Quads" -> "Quads";
+                case "Hamstrings" -> "Hamstrings";
+                case "Glutes" -> "Glutes";
+                case "Calves" -> "Calves";
+                default -> null;
+            };
+        }
+
+        return switch (focusArea) {
+            case "Upper Chest", "Mid Chest", "Lower Chest" -> focusArea;
+            case "Inner Chest" -> "Mid Chest";
+            case "Front Delts", "Side Delts", "Rear Delts" -> focusArea;
+            case "Lats", "Mid Back", "Upper Traps", "Spinal Erectors" -> focusArea;
+            case "Long Head", "Lateral Head", "Medial Head" -> focusArea;
+            case "Short Head" -> "Biceps Short Head";
+            case "Long Head Biceps", "Long Head (Biceps)" -> "Biceps Long Head";
+            case "Brachialis", "Brachioradialis" -> "Forearms";
+            case "Upper Abs", "Lower Abs", "Abs" -> "Abs";
+            case "Obliques" -> "Obliques";
+            case "Quads", "Hamstrings", "Glutes", "Calves" -> focusArea;
+            default -> switch (muscleGroup) {
+                case "Chest" -> "Mid Chest";
+                case "Back" -> "Mid Back";
+                case "Shoulders" -> "Front Delts";
+                case "Triceps" -> "Long Head";
+                case "Biceps" -> "Biceps Long Head";
+                case "Core" -> "Abs";
+                default -> null;
+            };
+        };
     }
 
     private static void insertAlternativeIfMissing(String exerciseName, String alternativeName) {

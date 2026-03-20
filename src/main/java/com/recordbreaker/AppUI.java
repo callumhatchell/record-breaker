@@ -9,12 +9,11 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Optional;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -23,15 +22,22 @@ import java.io.File;
 
 import java.time.LocalDate;
 import java.time.format.TextStyle;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
 public class AppUI extends Application {
 
+    // Root containers shared across every screen.
     private StackPane root;
     private BorderPane mainLayout;
-    private HashMap<String, Integer> exerciseRecords = new HashMap<>();
+
+    // Lightweight in-app accessibility and display settings.
+    private double textScale = 1.0;
+    private boolean highContrastMode = false;
+    private boolean reducedMotion = false;
+    private boolean compactSpacing = false;
+    private double preferredCardWidth = 420;
 
     @Override
     public void start(Stage stage) {
@@ -57,24 +63,14 @@ public class AppUI extends Application {
     }
 
     private void showLoginScreen() {
-        VBox card = new VBox(14);
-        card.setAlignment(Pos.CENTER);
-        card.setMaxWidth(340);
-        card.setPadding(new Insets(28));
-        card.setStyle(
-                "-fx-background-color: rgba(255,255,255,0.96);" +
-                        "-fx-background-radius: 24;" +
-                        "-fx-border-color: #e5e7eb;" +
-                        "-fx-border-radius: 24;"
+        VBox hero = createBrandHero(
+                "Record Breaker",
+                "Built like a training app with a cleaner home screen, stronger branding, and faster access to your plan."
         );
 
-        ImageView logo = createLogoView(90);
-
-        Label title = new Label("Record Breaker");
-        title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #111827;");
-
-        Label subtitle = new Label("Log in to continue");
-        subtitle.setStyle("-fx-font-size: 14px; -fx-text-fill: #6b7280;");
+        VBox card = createScreenCard(360);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.setPadding(new Insets(scaledSpacing(24)));
 
         TextField usernameField = new TextField();
         usernameField.setPromptText("Username");
@@ -101,6 +97,16 @@ public class AppUI extends Application {
         Label messageLabel = new Label();
         messageLabel.setWrapText(true);
         messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #dc2626;");
+
+        Label eyebrow = new Label("Welcome Back");
+        eyebrow.setStyle(modernTagStyle());
+
+        Label title = new Label("Log in to continue");
+        title.setStyle("-fx-font-size: " + px(24) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+
+        Label subtitle = new Label("Pick up where you left off and jump straight back into training.");
+        subtitle.setWrapText(true);
+        subtitle.setStyle(screenSubtitleStyle());
 
         loginButton.setOnAction(e -> {
             String username = usernameField.getText().trim();
@@ -131,10 +137,11 @@ public class AppUI extends Application {
 
         signUpButton.setOnAction(e -> showSignUpScreen());
 
+        VBox header = new VBox(6, eyebrow, title, subtitle);
+        header.setAlignment(Pos.CENTER_LEFT);
+
         card.getChildren().addAll(
-                logo,
-                title,
-                subtitle,
+                header,
                 usernameField,
                 usernameHint,
                 passwordField,
@@ -144,11 +151,10 @@ public class AppUI extends Application {
                 messageLabel
         );
 
-        StackPane wrapper = new StackPane(card);
-        wrapper.setStyle("-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);");
-        wrapper.setPadding(new Insets(30));
+        VBox layout = new VBox(scaledSpacing(18), hero, card);
+        layout.setAlignment(Pos.CENTER);
 
-        mainLayout.setCenter(wrapper);
+        mainLayout.setCenter(wrapScreen(layout));
     }
 
     private void showRecordBrokenAnimation() {
@@ -477,34 +483,19 @@ public class AppUI extends Application {
                 messageLabel
         );
 
-        StackPane wrapper = new StackPane(card);
-        wrapper.setStyle("-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);");
-        wrapper.setPadding(new Insets(30));
-
-        mainLayout.setCenter(wrapper);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showSplashScreen() {
-        VBox layout = new VBox(18);
+        VBox hero = createBrandHero(
+                "Record Breaker",
+                "Train harder. Track smarter. Keep your whole routine inside one clean training app."
+        );
+        hero.setMaxWidth(360);
+
+        VBox layout = new VBox(scaledSpacing(18));
         layout.setAlignment(Pos.CENTER);
-        layout.setStyle(
-                "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);"
-        );
-
-        ImageView logo = createLogoView(128);
-
-        Label title = new Label("RECORD BREAKER");
-        title.setStyle(
-                "-fx-font-size: 34px;" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-text-fill: white;"
-        );
-
-        Label subtitle = new Label("Train harder. Track smarter.");
-        subtitle.setStyle(
-                "-fx-font-size: 15px;" +
-                        "-fx-text-fill: #cbd5e1;"
-        );
+        layout.setStyle(appBackgroundStyle());
 
         ProgressBar progressBar = new ProgressBar();
         progressBar.setPrefWidth(240);
@@ -517,8 +508,19 @@ public class AppUI extends Application {
                         "-fx-text-fill: #94a3b8;"
         );
 
-        layout.getChildren().addAll(logo, title, subtitle, progressBar, loadingLabel);
-        mainLayout.setCenter(layout);
+        VBox statusCard = new VBox(scaledSpacing(10), progressBar, loadingLabel);
+        statusCard.setAlignment(Pos.CENTER);
+        statusCard.setMaxWidth(320);
+        statusCard.setPadding(new Insets(scaledSpacing(18)));
+        statusCard.setStyle(
+                "-fx-background-color: rgba(15,23,42,0.54);" +
+                        "-fx-background-radius: 24;" +
+                        "-fx-border-color: rgba(148,163,184,0.18);" +
+                        "-fx-border-radius: 24;"
+        );
+
+        layout.getChildren().addAll(hero, statusCard);
+        mainLayout.setCenter(wrapScreen(layout));
 
         Timeline timeline = new Timeline(
                 new KeyFrame(Duration.seconds(0), new KeyValue(progressBar.progressProperty(), 0)),
@@ -526,7 +528,12 @@ public class AppUI extends Application {
         );
 
         timeline.setOnFinished(e -> showLoginScreen());
-        timeline.play();
+        if (reducedMotion) {
+            progressBar.setProgress(1);
+            showLoginScreen();
+        } else {
+            timeline.play();
+        }
     }
 
     private void startWorkout(String username, String todayPlan) {
@@ -542,11 +549,12 @@ public class AppUI extends Application {
         List<String> exercises = DatabaseHelper.getExercisesForDay(username, selectedSplit, today);
 
         if (todayPlan.equals("Rest Day") || exercises.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Rest Day");
-            alert.setHeaderText(null);
-            alert.setContentText("Today is a rest day. Recover well!");
-            alert.showAndWait();
+            showInfoScreen(
+                    "Rest Day",
+                    "Today is a rest day. Recover well and come back stronger tomorrow.",
+                    "Back to Dashboard",
+                    () -> showDashboard(username)
+            );
             return;
         }
 
@@ -566,42 +574,45 @@ public class AppUI extends Application {
         String currentExercise = exercises[currentIndex];
 
         Label title = new Label(currentExercise.toUpperCase());
-        title.setStyle(
-                "-fx-font-size: 30px;" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-text-fill: #111827;"
-        );
+        title.setStyle("-fx-font-size: " + px(30) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+        title.setWrapText(true);
+        title.setTextAlignment(TextAlignment.CENTER);
 
         Label subtitle = new Label(workoutTitle);
-        subtitle.setStyle(
-                "-fx-font-size: 14px;" +
-                        "-fx-text-fill: #6b7280;"
-        );
+        subtitle.setStyle(screenSubtitleStyle());
 
         StackPane imageCard = new StackPane();
         imageCard.setPrefSize(260, 260);
         imageCard.setMaxSize(260, 260);
         imageCard.setStyle(
-                "-fx-background-color: white;" +
+                "-fx-background-color: " + cardFill() + ";" +
                         "-fx-background-radius: 30;" +
-                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-color: " + borderColor() + ";" +
                         "-fx-border-radius: 30;" +
                         "-fx-border-width: 2;"
         );
 
         Label iconLabel = new Label(getExerciseIcon(currentExercise));
-        iconLabel.setStyle("-fx-font-size: 90px;");
+        iconLabel.setStyle("-fx-font-size: " + px(90) + "px;");
 
         imageCard.getChildren().add(iconLabel);
+
+        final int indexToUse = currentIndex;
 
         Button exitButton = new Button("🚪 Exit");
         exitButton.setPrefWidth(110);
         exitButton.setStyle(modernSecondaryButtonStyle());
-        exitButton.setOnAction(e -> confirmExitWorkout(username));
+        exitButton.setOnAction(e -> confirmExitWorkout(
+                username,
+                () -> showCustomWorkout(username, workoutTitle, exercises, indexToUse)
+        ));
+        exitButton.setText("Exit");
 
         Button backButton = new Button("⬅ Back");
         Button changeButton = new Button("⇄ Change");
         Button nextButton = new Button("Log Sets");
+        backButton.setText("Back");
+        changeButton.setText("Change");
 
         backButton.setPrefWidth(110);
         changeButton.setPrefWidth(110);
@@ -611,15 +622,13 @@ public class AppUI extends Application {
         changeButton.setStyle(modernNavButtonStyle());
         nextButton.setStyle(modernNavButtonStyle());
 
-        final int indexToUse = currentIndex;
-
         backButton.setOnAction(e -> {
             if (indexToUse > 0) {
                 showCustomWorkout(username, workoutTitle, exercises, indexToUse - 1);
             }
         });
 
-        changeButton.setOnAction(e -> showChangeExerciseDialog(username, workoutTitle, exercises, indexToUse));
+        changeButton.setOnAction(e -> showWorkoutExercisePickerScreen(username, workoutTitle, exercises, indexToUse, false));
 
         nextButton.setOnAction(e -> {
             showSetLoggerScreen(username, workoutTitle, exercises, indexToUse);
@@ -638,11 +647,9 @@ public class AppUI extends Application {
         VBox.setVgrow(spacerTop, Priority.ALWAYS);
         VBox.setVgrow(spacerBottom, Priority.ALWAYS);
 
-        VBox layout = new VBox(18);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.setStyle("-fx-background-color: #f8fafc;");
-        layout.getChildren().addAll(
+        VBox card = createScreenCard(440);
+        card.setAlignment(Pos.CENTER);
+        card.getChildren().addAll(
                 subtitle,
                 spacerTop,
                 imageCard,
@@ -651,89 +658,116 @@ public class AppUI extends Application {
                 bottomBar
         );
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
-    private void showChangeExerciseDialog(String username, String workoutTitle, String[] exercises, int currentIndex) {
+    /**
+     * Themed picker used during an active workout so we never fall back to default JavaFX dialogs.
+     */
+    private void showWorkoutExercisePickerScreen(String username, String workoutTitle, String[] exercises, int currentIndex, boolean alternativesOnly) {
         String currentExercise = exercises[currentIndex];
-
-        List<String> allExercises = new ArrayList<>();
-        allExercises.addAll(Arrays.asList(
-                "Bench Press",
-                "Incline Dumbbell Bench Press",
-                "Machine Pec Fly",
-                "Tricep Pushdown",
-                "Overhead Extension",
-                "Dips",
-                "Dumbbell Shoulder Press",
-                "Cable Lateral Raise",
-                "Lat Pulldown",
-                "Close Grip Lat Pulldown",
-                "Cable Row",
-                "Cable Face Pulls",
-                "Dumbbell Shrugs",
-                "Preacher Curls",
-                "Incline Dumbbell Curls",
-                "Reverse Wrist Curls",
-                "Squats",
-                "Leg Extension",
-                "Leg Curl",
-                "Calf Raise"
-        ));
-
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(currentExercise, allExercises);
-        dialog.setTitle("Change Exercise");
-        dialog.setHeaderText("Choose a replacement for " + currentExercise);
-        dialog.setContentText("Exercise:");
-
-        ButtonType alternativesButtonType = new ButtonType("Alternatives");
-        dialog.getDialogPane().getButtonTypes().add(alternativesButtonType);
-
-        dialog.setResultConverter(button -> {
-            if (button == alternativesButtonType) {
-                return "__ALTERNATIVES__";
-            }
-            if (button == ButtonType.OK) {
-                return dialog.getSelectedItem();
-            }
-            return null;
-        });
-
-        Optional<String> result = dialog.showAndWait();
-
-        if (result.isPresent()) {
-            if (result.get().equals("__ALTERNATIVES__")) {
-                showAlternativesPicker(username, workoutTitle, exercises, currentIndex, currentExercise);
-            } else {
-                exercises[currentIndex] = result.get();
-                showCustomWorkout(username, workoutTitle, exercises, currentIndex);
-            }
+        String defaultFilter = alternativesOnly ? DatabaseHelper.getMuscleGroupForExercise(currentExercise) : "All";
+        if (defaultFilter == null || defaultFilter.isBlank()) {
+            defaultFilter = "All";
         }
-    }
+        List<String> availableExercises = alternativesOnly
+                ? DatabaseHelper.getAlternatives(currentExercise)
+                : DatabaseHelper.getExercisesByMuscleGroup(defaultFilter);
 
-    private void showAlternativesPicker(String username, String workoutTitle, String[] exercises, int currentIndex, String currentExercise) {
-        List<String> alternatives = DatabaseHelper.getAlternatives(currentExercise);
-
-        if (alternatives.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Alternatives");
-            alert.setHeaderText(null);
-            alert.setContentText("No alternatives found for " + currentExercise + ".");
-            alert.showAndWait();
+        if (availableExercises.isEmpty()) {
+            showInfoScreen(
+                    "No Alternatives Yet",
+                    "There are no saved alternatives for " + currentExercise + " right now.",
+                    "Back",
+                    () -> showCustomWorkout(username, workoutTitle, exercises, currentIndex)
+            );
             return;
         }
 
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(alternatives.get(0), alternatives);
-        dialog.setTitle("Exercise Alternatives");
-        dialog.setHeaderText("Alternatives for " + currentExercise);
-        dialog.setContentText("Choose one:");
+        Label title = new Label(alternativesOnly ? "Choose Alternative" : "Change Exercise");
+        title.setStyle(screenTitleStyle());
 
-        Optional<String> result = dialog.showAndWait();
+        Label subtitle = new Label(alternativesOnly
+                ? "Pick a similar movement for " + currentExercise + "."
+                : "Swap " + currentExercise + " with any exercise in the catalog.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
 
-        result.ifPresent(selected -> {
-            exercises[currentIndex] = selected;
-            showCustomWorkout(username, workoutTitle, exercises, currentIndex);
+        Label currentLabel = new Label("Current: " + currentExercise);
+        currentLabel.setStyle(modernTagStyle());
+
+        Label filterLabel = new Label("Filter by muscle group");
+        filterLabel.setStyle("-fx-font-size: " + px(13) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+
+        MenuButton filterButton = new MenuButton("Muscle Group: " + defaultFilter);
+        filterButton.setStyle(modernFilterButtonStyle());
+
+        ComboBox<String> exerciseBox = new ComboBox<>();
+        exerciseBox.getItems().setAll(availableExercises);
+        exerciseBox.setPromptText("Select an exercise");
+        exerciseBox.setMaxWidth(Double.MAX_VALUE);
+        exerciseBox.setStyle(modernComboBoxStyle());
+        exerciseBox.setVisibleRowCount(10);
+        styleExerciseComboBox(exerciseBox);
+
+        final String[] selectedFilter = {defaultFilter};
+
+        List<String> muscleGroups = new ArrayList<>();
+        muscleGroups.add("All");
+        muscleGroups.addAll(DatabaseHelper.getAllMuscleGroups());
+
+        for (String muscleGroup : muscleGroups) {
+            MenuItem item = new MenuItem(muscleGroup);
+            item.setOnAction(e -> {
+                selectedFilter[0] = muscleGroup;
+                filterButton.setText("Muscle Group: " + muscleGroup);
+                List<String> refreshed = alternativesOnly
+                        ? filterExercisesList(DatabaseHelper.getAlternatives(currentExercise), muscleGroup, "")
+                        : DatabaseHelper.getExercisesByMuscleGroup(muscleGroup);
+                applyExerciseOptions(exerciseBox, refreshed);
+            });
+            filterButton.getItems().add(item);
+        }
+
+        configureAutocompleteComboBox(
+                exerciseBox,
+                query -> alternativesOnly
+                        ? filterExercisesList(DatabaseHelper.getAlternatives(currentExercise), selectedFilter[0], query)
+                        : DatabaseHelper.searchExercises(selectedFilter[0], query)
+        );
+
+        Button confirmButton = new Button(alternativesOnly ? "Use Alternative" : "Replace Exercise");
+        confirmButton.setMaxWidth(Double.MAX_VALUE);
+        confirmButton.setStyle(modernPrimaryButtonStyle());
+        confirmButton.setOnAction(e -> {
+            String selectedExercise = resolveAutocompleteSelection(
+                    exerciseBox,
+                    query -> alternativesOnly
+                            ? filterExercisesList(DatabaseHelper.getAlternatives(currentExercise), selectedFilter[0], query)
+                            : DatabaseHelper.searchExercises(selectedFilter[0], query)
+            );
+            if (selectedExercise != null && !selectedExercise.isBlank()) {
+                exercises[currentIndex] = selectedExercise;
+                showCustomWorkout(username, workoutTitle, exercises, currentIndex);
+            }
         });
+
+        Button altButton = new Button("Alternatives");
+        altButton.setMaxWidth(Double.MAX_VALUE);
+        altButton.setStyle(modernSecondaryButtonStyle());
+        altButton.setDisable(alternativesOnly);
+        altButton.setOnAction(e -> showWorkoutExercisePickerScreen(username, workoutTitle, exercises, currentIndex, true));
+
+        Button backButton = new Button("Back");
+        backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
+        backButton.setOnAction(e -> showCustomWorkout(username, workoutTitle, exercises, currentIndex));
+
+        VBox card = createScreenCard(430);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, currentLabel, filterLabel, filterButton, exerciseBox, confirmButton, altButton, backButton);
+
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showPushWorkout(String username) {
@@ -767,21 +801,23 @@ public class AppUI extends Application {
         String[] exercises = getDefaultPushExercises();
 
         Label title = new Label("Push Day Workout");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Choose an exercise to start logging.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
 
         VBox exerciseBox = new VBox(12);
         exerciseBox.setAlignment(Pos.CENTER);
+        exerciseBox.setFillWidth(true);
 
         for (int i = 0; i < exercises.length; i++) {
             Button exerciseButton = new Button(exercises[i]);
             exerciseButton.setMaxWidth(Double.MAX_VALUE);
+            exerciseButton.setStyle(i == currentIndex ? modernPrimaryButtonStyle() : modernSecondaryButtonStyle());
 
             final int index = i;
             exerciseButton.setOnAction(e -> showSetLoggerScreen(username, "Push Day", exercises, index));
-
-            if (i == currentIndex) {
-                exerciseButton.setStyle("-fx-font-weight: bold; -fx-background-color: #dbeafe;");
-            }
 
             exerciseBox.getChildren().add(exerciseButton);
         }
@@ -791,21 +827,22 @@ public class AppUI extends Application {
 
         finishButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
+        finishButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
 
         finishButton.setOnAction(e -> showWorkoutComplete(username));
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(20);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, exerciseBox, finishButton, backButton);
+        VBox card = createScreenCard(430);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, exerciseBox, finishButton, backButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showPullWorkout(String username) {
         Label title = new Label("Pull Day Workout");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
 
         Label exercises = new Label(
                 "Deadlift\n" +
@@ -814,27 +851,29 @@ public class AppUI extends Application {
                         "Face Pull\n" +
                         "Bicep Curl"
         );
+        exercises.setStyle(screenSubtitleStyle());
 
         Button startLoggingButton = new Button("Log Sets");
         Button backButton = new Button("Back");
 
         startLoggingButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
+        startLoggingButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
 
         startLoggingButton.setOnAction(e -> showAddWorkoutScreen(username));
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(20);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, exercises, startLoggingButton, backButton);
+        VBox card = createScreenCard(420);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, exercises, startLoggingButton, backButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showLegWorkout(String username) {
         Label title = new Label("Leg Day Workout");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
 
         Label exercises = new Label(
                 "Squat\n" +
@@ -843,22 +882,24 @@ public class AppUI extends Application {
                         "Leg Curl\n" +
                         "Calf Raises"
         );
+        exercises.setStyle(screenSubtitleStyle());
 
         Button startLoggingButton = new Button("Log Sets");
         Button backButton = new Button("Back");
 
         startLoggingButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
+        startLoggingButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
 
         startLoggingButton.setOnAction(e -> showAddWorkoutScreen(username));
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(20);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, exercises, startLoggingButton, backButton);
+        VBox card = createScreenCard(420);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, exercises, startLoggingButton, backButton);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showSetLoggerScreen(String username, String workoutType, String[] exercises, int currentIndex) {
@@ -868,10 +909,12 @@ public class AppUI extends Application {
         double estimatedOneRepMax = DatabaseHelper.getEstimatedOneRepMax(username, exercise);
 
         Label title = new Label(exercise.toUpperCase());
-        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #111827;");
+        title.setStyle("-fx-font-size: " + px(26) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+        title.setWrapText(true);
+        title.setTextAlignment(TextAlignment.CENTER);
 
         Label subtitle = new Label("Log your sets");
-        subtitle.setStyle("-fx-font-size: 15px; -fx-text-fill: #6b7280;");
+        subtitle.setStyle(screenSubtitleStyle());
 
         StackPane imageCard = new StackPane();
         imageCard.setPrefSize(180, 180);
@@ -879,13 +922,17 @@ public class AppUI extends Application {
         Button exitButton = new Button("🚪 Exit");
         exitButton.setMaxWidth(Double.MAX_VALUE);
         exitButton.setStyle(modernSecondaryButtonStyle());
-        exitButton.setOnAction(e -> confirmExitWorkout(username));
+        exitButton.setOnAction(e -> confirmExitWorkout(
+                username,
+                () -> showSetLoggerScreen(username, workoutType, exercises, currentIndex)
+        ));
+        exitButton.setText("Exit");
 
         imageCard.setMaxSize(180, 180);
         imageCard.setStyle(
-                "-fx-background-color: white;" +
+                "-fx-background-color: " + cardFill() + ";" +
                         "-fx-background-radius: 24;" +
-                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-color: " + borderColor() + ";" +
                         "-fx-border-radius: 24;" +
                         "-fx-border-width: 2;"
         );
@@ -896,9 +943,9 @@ public class AppUI extends Application {
                         : "Estimated 1RM: N/A"
         );
         oneRepMaxLabel.setStyle(
-                "-fx-font-size: 16px;" +
+                "-fx-font-size: " + px(16) + "px;" +
                         "-fx-font-weight: bold;" +
-                        "-fx-text-fill: #111827;"
+                        "-fx-text-fill: " + primaryText() + ";"
         );
 
         VBox previousSetsBox = new VBox(6);
@@ -907,7 +954,7 @@ public class AppUI extends Application {
         previousSetsBox.setStyle(
                 "-fx-background-color: white;" +
                         "-fx-background-radius: 18;" +
-                        "-fx-border-color: #e5e7eb;" +
+                        "-fx-border-color: " + borderColor() + ";" +
                         "-fx-border-radius: 18;" +
                         "-fx-padding: 14;"
         );
@@ -995,11 +1042,13 @@ public class AppUI extends Application {
             TextField weightField = new TextField();
             weightField.setPromptText("Weight (kg)");
             weightField.setPrefWidth(140);
+            weightField.setStyle(modernFieldStyle());
             setRow.weightField = weightField;
 
             TextField repsField = new TextField();
             repsField.setPromptText("Reps");
             repsField.setPrefWidth(100);
+            repsField.setStyle(modernFieldStyle());
             setRow.repsField = repsField;
 
             Button removeButton = new Button("✕");
@@ -1023,6 +1072,7 @@ public class AppUI extends Application {
 
             HBox row = new HBox(10, badgeButton, weightField, repsField, removeButton);
             row.setAlignment(Pos.CENTER);
+            row.setMaxWidth(Double.MAX_VALUE);
             setRow.row = row;
 
             setRows.add(setRow);
@@ -1116,11 +1166,9 @@ public class AppUI extends Application {
         HBox.setHgrow(cancelButton, Priority.ALWAYS);
         HBox.setHgrow(doneButton, Priority.ALWAYS);
 
-        VBox layout = new VBox(14);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.setStyle("-fx-background-color: #f8fafc;");
-        layout.getChildren().addAll(
+        VBox card = createScreenCard(440);
+        card.setAlignment(Pos.CENTER);
+        card.getChildren().addAll(
                 imageCard,
                 title,
                 subtitle,
@@ -1132,11 +1180,11 @@ public class AppUI extends Application {
                 resultLabel
         );
 
-        ScrollPane scrollPane = new ScrollPane(layout);
+        ScrollPane scrollPane = new ScrollPane(card);
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: #f8fafc; -fx-background-color: #f8fafc;");
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        mainLayout.setCenter(scrollPane);
+        mainLayout.setCenter(wrapScreen(scrollPane));
     }
 
     private void showProfileScreen(String username) {
@@ -1231,22 +1279,37 @@ public class AppUI extends Application {
     private void showEditProfileScreen(String username) {
         String[] profile = DatabaseHelper.getProfileDetails(username);
 
+        Label title = new Label("Edit Profile");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Update your profile details and picture.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
+
         TextField nameField = new TextField(profile[0]);
         nameField.setPromptText("Display Name");
+        nameField.setStyle(modernFieldStyle());
 
         TextField heightField = new TextField(profile[1].equals("0.0") ? "" : profile[1]);
         heightField.setPromptText("Height (cm)");
+        heightField.setStyle(modernFieldStyle());
 
         TextField weightField = new TextField(profile[2].equals("0.0") ? "" : profile[2]);
         weightField.setPromptText("Weight (kg)");
+        weightField.setStyle(modernFieldStyle());
 
         TextField pictureField = new TextField(profile[3]);
         pictureField.setPromptText("Profile Picture Path");
+        pictureField.setStyle(modernFieldStyle());
 
         Button browseButton = new Button("Browse");
         Button saveButton = new Button("Save Changes");
         Button backButton = new Button("Cancel");
         Label resultLabel = new Label();
+        browseButton.setStyle(modernSecondaryButtonStyle());
+        saveButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
+        resultLabel.setStyle("-fx-text-fill: #dc2626; -fx-font-size: " + px(13) + "px;");
 
         browseButton.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
@@ -1281,12 +1344,11 @@ public class AppUI extends Application {
         HBox pictureRow = new HBox(10, pictureField, browseButton);
         pictureRow.setAlignment(Pos.CENTER);
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-
-        layout.getChildren().addAll(
-                new Label("Edit Profile"),
+        VBox card = createScreenCard(440);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(
+                title,
+                subtitle,
                 nameField,
                 heightField,
                 weightField,
@@ -1296,7 +1358,7 @@ public class AppUI extends Application {
                 resultLabel
         );
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showDashboard(String username) {
@@ -1318,27 +1380,19 @@ public class AppUI extends Application {
 
         BorderPane topBar = new BorderPane();
 
-        Button menuButton = new Button("☰");
+        Button menuButton = new Button("⚙");
         menuButton.setStyle(modernSecondaryButtonStyle());
-        menuButton.setOnAction(e -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Menu");
-            alert.setHeaderText(null);
-            alert.setContentText("Quick settings/menu can go here later.");
-            alert.showAndWait();
-        });
-
-        ImageView logo = createLogoView(28);
-
-        Label titleLabel = new Label("Record Breaker");
-        titleLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #111827;");
-
-        HBox titleBox = new HBox(10, logo, titleLabel);
+        menuButton.setOnAction(e -> showQuickSettingsScreen(username));
+        menuButton.setPrefWidth(56);
+        menuButton.setMinWidth(56);
+        HBox titleBox = createCompactBrandBar();
         titleBox.setAlignment(Pos.CENTER);
 
         Button profileButton = new Button("👤");
         profileButton.setStyle(modernSecondaryButtonStyle());
         profileButton.setOnAction(e -> showProfileScreen(username));
+        profileButton.setPrefWidth(56);
+        profileButton.setMinWidth(56);
 
         topBar.setLeft(menuButton);
 
@@ -1346,43 +1400,82 @@ public class AppUI extends Application {
         topBar.setRight(profileButton);
         BorderPane.setAlignment(titleBox, Pos.CENTER);
 
-        Label welcomeLabel = new Label("Welcome, " + username);
-        welcomeLabel.setStyle(screenTitleStyle());
+        Label greetingLabel = new Label("Welcome back");
+        greetingLabel.setStyle(modernTagStyle());
 
-        Label planLabel = new Label("Today is " + today + " • " + todayPlan);
+        Label welcomeLabel = new Label(username);
+        welcomeLabel.setStyle("-fx-font-size: " + px(30) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+
+        Label planLabel = new Label("Today is " + today + " - " + todayPlan);
         planLabel.setStyle(screenSubtitleStyle());
         planLabel.setWrapText(true);
 
-        Button startButton = new Button("Start Workout");
+        Label splitLabel = new Label(selectedSplit);
+        splitLabel.setStyle(modernTagStyle());
+
+        Label dayLabel = new Label(today);
+        dayLabel.setStyle(modernAccentTagStyle());
+
+        HBox heroTags = new HBox(8, splitLabel, dayLabel);
+        heroTags.setAlignment(Pos.CENTER_LEFT);
+
+        Button heroStartButton = new Button("Start Today's Workout");
+        heroStartButton.setMaxWidth(Double.MAX_VALUE);
+        heroStartButton.setStyle(modernPrimaryButtonStyle());
+        heroStartButton.setOnAction(e -> startWorkout(username, planForToday));
+
+        VBox heroCard = new VBox(scaledSpacing(12), greetingLabel, welcomeLabel, planLabel, heroTags, heroStartButton);
+        heroCard.setAlignment(Pos.CENTER_LEFT);
+        heroCard.setPadding(new Insets(scaledSpacing(22)));
+        heroCard.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, rgba(255,255,255,0.98), rgba(241,245,249,0.96));" +
+                        "-fx-background-radius: 28;" +
+                        "-fx-border-color: " + borderColor() + ";" +
+                        "-fx-border-radius: 28;"
+        );
+
         Button splitsButton = new Button("Splits");
         Button modifyButton = new Button("Modify Split");
         Button recordsButton = new Button("History");
         Button logoutButton = new Button("Log Out");
 
-        startButton.setMaxWidth(Double.MAX_VALUE);
         splitsButton.setMaxWidth(Double.MAX_VALUE);
         modifyButton.setMaxWidth(Double.MAX_VALUE);
         recordsButton.setMaxWidth(Double.MAX_VALUE);
         logoutButton.setMaxWidth(Double.MAX_VALUE);
 
-        startButton.setStyle(modernPrimaryButtonStyle());
         splitsButton.setStyle(modernSecondaryButtonStyle());
         modifyButton.setStyle(modernSecondaryButtonStyle());
         recordsButton.setStyle(modernSecondaryButtonStyle());
         logoutButton.setStyle(modernSecondaryButtonStyle());
 
-        startButton.setOnAction(e -> startWorkout(username, planForToday));
         splitsButton.setOnAction(e -> showSplitsScreen(username));
         modifyButton.setOnAction(e -> showModifySplitScreen(username));
         recordsButton.setOnAction(e -> showHistoryScreen(username));
         logoutButton.setOnAction(e -> showLoginScreen());
 
-        VBox buttonBox = new VBox(12, startButton, splitsButton, modifyButton, recordsButton, logoutButton);
-        buttonBox.setFillWidth(true);
+        GridPane actionGrid = new GridPane();
+        actionGrid.setHgap(scaledSpacing(12));
+        actionGrid.setVgap(scaledSpacing(12));
+        actionGrid.add(createMenuActionCard("Splits", "Choose and manage your training structure.", splitsButton), 0, 0);
+        actionGrid.add(createMenuActionCard("Modify", "Swap, replace, and fine tune each workout day.", modifyButton), 1, 0);
+        actionGrid.add(createMenuActionCard("History", "Review lifts, records, and previous sessions.", recordsButton), 0, 1);
+        actionGrid.add(createMenuActionCard("Account", "Profile details, settings, and sign out.", logoutButton), 1, 1);
+
+        ColumnConstraints leftColumn = new ColumnConstraints();
+        leftColumn.setPercentWidth(50);
+        leftColumn.setHgrow(Priority.ALWAYS);
+        ColumnConstraints rightColumn = new ColumnConstraints();
+        rightColumn.setPercentWidth(50);
+        rightColumn.setHgrow(Priority.ALWAYS);
+        actionGrid.getColumnConstraints().addAll(leftColumn, rightColumn);
+
+        Label sectionLabel = new Label("Quick Actions");
+        sectionLabel.setStyle("-fx-font-size: " + px(18) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
 
         VBox card = createScreenCard(420);
         card.setAlignment(Pos.TOP_CENTER);
-        card.getChildren().addAll(topBar, welcomeLabel, planLabel, buttonBox);
+        card.getChildren().addAll(topBar, heroCard, sectionLabel, actionGrid);
 
         mainLayout.setCenter(wrapScreen(card));
     }
@@ -1594,6 +1687,10 @@ public class AppUI extends Application {
         Label title = new Label("Current Split: " + splitToUse);
         title.setStyle(screenTitleStyle());
 
+        Label subtitle = new Label("Choose a day to add, replace, swap, or remove exercises.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
+
         VBox daysBox = new VBox(10);
         String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
@@ -1614,20 +1711,35 @@ public class AppUI extends Application {
         backButton.setOnAction(e -> showDashboard(username));
 
         VBox card = createScreenCard(420);
-        card.getChildren().addAll(title, daysBox, backButton);
+        card.getChildren().addAll(title, subtitle, daysBox, backButton);
 
         mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showModifyDayScreen(String username, String splitName, String day) {
-        Label title = new Label(day + " - " + splitName);
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        Label title = new Label(day);
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label(splitName + " • Curate this day with cleaner swaps and filtered exercise picking.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
 
         VBox exerciseList = new VBox(12);
+        exerciseList.setFillWidth(true);
         List<String> exercises = DatabaseHelper.getExercisesForDay(username, splitName, day);
 
         if (exercises.isEmpty()) {
             Label emptyLabel = new Label("No exercises added for this day yet.");
+            emptyLabel.setStyle(
+                    "-fx-background-color: rgba(255,255,255,0.9);" +
+                            "-fx-background-radius: 18;" +
+                            "-fx-border-color: #d1d5db;" +
+                            "-fx-border-radius: 18;" +
+                            "-fx-padding: 18;" +
+                            "-fx-text-fill: #6b7280;" +
+                            "-fx-font-size: 14px;"
+            );
+            emptyLabel.setMaxWidth(Double.MAX_VALUE);
             exerciseList.getChildren().add(emptyLabel);
         } else {
             for (String exercise : exercises) {
@@ -1636,51 +1748,49 @@ public class AppUI extends Application {
             }
         }
 
-        Button addExerciseButton = new Button("Add New Exercise");
+        Button addExerciseButton = new Button("Add New Workout");
         addExerciseButton.setMaxWidth(Double.MAX_VALUE);
-        addExerciseButton.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog();
-            dialog.setTitle("Add Exercise");
-            dialog.setHeaderText(null);
-            dialog.setContentText("Enter exercise name:");
-
-            dialog.showAndWait().ifPresent(newExercise -> {
-                if (!newExercise.trim().isEmpty()) {
-                    int nextOrder = DatabaseHelper.getExercisesForDay(username, splitName, day).size();
-                    DatabaseHelper.addExerciseToDay(username, splitName, day, newExercise.trim(), nextOrder);
-                    showModifyDayScreen(username, splitName, day);
-                }
-            });
-        });
+        addExerciseButton.setStyle(modernPrimaryButtonStyle());
+        addExerciseButton.setOnAction(e -> showExercisePickerScreen(username, splitName, day, null));
 
         Button backButton = new Button("Back");
         backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
         backButton.setOnAction(e -> showModifySplitScreen(username));
 
-        VBox layout = new VBox(20, title, exerciseList, addExerciseButton, backButton);
-        layout.setPadding(new Insets(25));
-        layout.setAlignment(Pos.TOP_CENTER);
+        VBox card = createScreenCard(460);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, exerciseList, addExerciseButton, backButton);
 
-        ScrollPane scrollPane = new ScrollPane(layout);
+        ScrollPane scrollPane = new ScrollPane(card);
         scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
-        mainLayout.setCenter(scrollPane);
+        mainLayout.setCenter(wrapScreen(scrollPane));
     }
 
     private void showAddWorkoutScreen(String username) {
         Label title = new Label("Add Workout");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Log a standalone workout entry.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
 
         ComboBox<String> exerciseBox = new ComboBox<>();
         exerciseBox.getItems().addAll("Bench Press", "Squat", "Deadlift", "Shoulder Press", "Barbell Row");
         exerciseBox.setPromptText("Select Exercise");
         exerciseBox.setMaxWidth(Double.MAX_VALUE);
+        exerciseBox.setStyle(modernComboBoxStyle());
+        styleExerciseComboBox(exerciseBox);
 
         TextField weightField = new TextField();
         weightField.setPromptText("Weight (kg)");
+        weightField.setStyle(modernFieldStyle());
 
         TextField repsField = new TextField();
         repsField.setPromptText("Reps");
+        repsField.setStyle(modernFieldStyle());
 
         Button saveButton = new Button("Save Workout");
         Button backButton = new Button("Back");
@@ -1688,6 +1798,9 @@ public class AppUI extends Application {
 
         saveButton.setMaxWidth(Double.MAX_VALUE);
         backButton.setMaxWidth(Double.MAX_VALUE);
+        saveButton.setStyle(modernPrimaryButtonStyle());
+        backButton.setStyle(modernSecondaryButtonStyle());
+        resultLabel.setStyle("-fx-font-size: " + px(13) + "px; -fx-text-fill: #374151;");
 
         saveButton.setOnAction(e -> {
             String exercise = exerciseBox.getValue();
@@ -1722,12 +1835,11 @@ public class AppUI extends Application {
 
         backButton.setOnAction(e -> showDashboard(username));
 
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(30));
-        layout.setAlignment(Pos.CENTER);
-        layout.getChildren().addAll(title, exerciseBox, weightField, repsField, saveButton, backButton, resultLabel);
+        VBox card = createScreenCard(420);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, exerciseBox, weightField, repsField, saveButton, backButton, resultLabel);
 
-        mainLayout.setCenter(layout);
+        mainLayout.setCenter(wrapScreen(card));
     }
 
     private void showHistoryScreen(String username) {
@@ -1757,6 +1869,135 @@ public class AppUI extends Application {
         VBox card = createScreenCard(460);
         card.getChildren().addAll(title, subtitle, historyList, backButton);
 
+        mainLayout.setCenter(wrapScreen(card));
+    }
+
+    /**
+     * Lightweight settings screen for accessibility and phone-like layout tuning.
+     */
+    private void showQuickSettingsScreen(String username) {
+        Label title = new Label("Quick Settings");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Adjust readability, contrast, motion, and content width.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
+
+        Slider textScaleSlider = new Slider(0.9, 1.3, textScale);
+        textScaleSlider.setShowTickLabels(true);
+        textScaleSlider.setShowTickMarks(true);
+
+        Slider cardWidthSlider = new Slider(360, 440, preferredCardWidth);
+        cardWidthSlider.setShowTickLabels(true);
+        cardWidthSlider.setShowTickMarks(true);
+
+        CheckBox contrastBox = new CheckBox("High contrast mode");
+        contrastBox.setSelected(highContrastMode);
+        contrastBox.setStyle(checkboxStyle());
+
+        CheckBox reducedMotionBox = new CheckBox("Reduce motion");
+        reducedMotionBox.setSelected(reducedMotion);
+        reducedMotionBox.setStyle(checkboxStyle());
+
+        CheckBox compactModeBox = new CheckBox("Compact spacing");
+        compactModeBox.setSelected(compactSpacing);
+        compactModeBox.setStyle(checkboxStyle());
+
+        VBox controls = new VBox(
+                scaledSpacing(10),
+                settingsRow("Text size", textScaleSlider),
+                settingsRow("Card width", cardWidthSlider),
+                contrastBox,
+                reducedMotionBox,
+                compactModeBox
+        );
+        controls.setMaxWidth(Double.MAX_VALUE);
+        controls.setStyle(surfaceStyle());
+
+        Button applyButton = new Button("Apply Settings");
+        applyButton.setMaxWidth(Double.MAX_VALUE);
+        applyButton.setStyle(modernPrimaryButtonStyle());
+        applyButton.setOnAction(e -> {
+            textScale = textScaleSlider.getValue();
+            preferredCardWidth = cardWidthSlider.getValue();
+            highContrastMode = contrastBox.isSelected();
+            reducedMotion = reducedMotionBox.isSelected();
+            compactSpacing = compactModeBox.isSelected();
+            showDashboard(username);
+        });
+
+        Button backButton = new Button("Back");
+        backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
+        backButton.setOnAction(e -> showDashboard(username));
+
+        VBox card = createScreenCard(440);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, controls, applyButton, backButton);
+
+        mainLayout.setCenter(wrapScreen(card));
+    }
+
+    private HBox settingsRow(String labelText, Node control) {
+        Label label = new Label(labelText);
+        label.setStyle("-fx-font-size: " + px(14) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox row = new HBox(12, label, spacer, control);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private void showInfoScreen(String titleText, String bodyText, String buttonText, Runnable onClose) {
+        Label icon = new Label("i");
+        icon.setStyle(
+                "-fx-font-size: " + px(28) + "px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-background-color: #2563eb;" +
+                        "-fx-background-radius: 18;" +
+                        "-fx-padding: 10 16 10 16;"
+        );
+
+        Label title = new Label(titleText);
+        title.setStyle(screenTitleStyle());
+
+        Label body = new Label(bodyText);
+        body.setStyle(screenSubtitleStyle());
+        body.setWrapText(true);
+        body.setTextAlignment(TextAlignment.CENTER);
+
+        Button closeButton = new Button(buttonText);
+        closeButton.setMaxWidth(Double.MAX_VALUE);
+        closeButton.setStyle(modernPrimaryButtonStyle());
+        closeButton.setOnAction(e -> onClose.run());
+
+        VBox card = createScreenCard(380);
+        card.getChildren().addAll(icon, title, body, closeButton);
+        mainLayout.setCenter(wrapScreen(card));
+    }
+
+    private void showConfirmScreen(String titleText, String bodyText, String confirmText, Runnable onConfirm, Runnable onCancel) {
+        Label title = new Label(titleText);
+        title.setStyle(screenTitleStyle());
+
+        Label body = new Label(bodyText);
+        body.setStyle(screenSubtitleStyle());
+        body.setWrapText(true);
+        body.setTextAlignment(TextAlignment.CENTER);
+
+        Button confirmButton = new Button(confirmText);
+        confirmButton.setMaxWidth(Double.MAX_VALUE);
+        confirmButton.setStyle(modernPrimaryButtonStyle());
+        confirmButton.setOnAction(e -> onConfirm.run());
+
+        Button cancelButton = new Button("Cancel");
+        cancelButton.setMaxWidth(Double.MAX_VALUE);
+        cancelButton.setStyle(modernSecondaryButtonStyle());
+        cancelButton.setOnAction(e -> onCancel.run());
+
+        VBox card = createScreenCard(400);
+        card.getChildren().addAll(title, body, confirmButton, cancelButton);
         mainLayout.setCenter(wrapScreen(card));
     }
 
@@ -1903,35 +2144,51 @@ public class AppUI extends Application {
     }
 
     private HBox createExerciseEditorRow(String username, String splitName, String day, String exercise) {
+        Label iconLabel = new Label(getExerciseIcon(exercise));
+        iconLabel.setStyle(
+                "-fx-font-size: 20px;" +
+                        "-fx-background-color: #c7d2fe;" +
+                        "-fx-background-radius: 16;" +
+                        "-fx-padding: 10;"
+        );
+
         Label nameLabel = new Label(exercise);
-        nameLabel.setPrefWidth(220);
-        nameLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+        nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #111827;");
+        nameLabel.setWrapText(true);
+        nameLabel.setMaxWidth(Double.MAX_VALUE);
+
+        Label muscleGroupLabel = new Label(DatabaseHelper.getMuscleGroupForExercise(exercise));
+        muscleGroupLabel.setStyle(modernTagStyle());
+
+        Label focusAreaLabel = new Label(DatabaseHelper.getFocusAreaForExercise(exercise));
+        focusAreaLabel.setStyle(modernAccentTagStyle());
+
+        HBox tagRow = new HBox(6, muscleGroupLabel);
+        if (!focusAreaLabel.getText().isBlank()) {
+            tagRow.getChildren().add(focusAreaLabel);
+        }
+
+        VBox textBox = new VBox(5, nameLabel, tagRow);
+        textBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
 
         Button replaceButton = new Button("🔄");
         Button removeButton = new Button("🗑");
         Button alternativeButton = new Button("⇄");
 
-        replaceButton.setStyle("-fx-font-size: 16px;");
-        removeButton.setStyle("-fx-font-size: 16px;");
-        alternativeButton.setStyle("-fx-font-size: 16px;");
+        alternativeButton.setText("Alternative");
+        replaceButton.setText("Replace");
+        removeButton.setText("Remove");
+
+        alternativeButton.setStyle(modernSecondaryButtonStyle());
+        replaceButton.setStyle(modernSecondaryButtonStyle());
+        removeButton.setStyle(modernDangerButtonStyle());
 
         replaceButton.setTooltip(new Tooltip("Replace Exercise"));
         removeButton.setTooltip(new Tooltip("Remove Exercise"));
         alternativeButton.setTooltip(new Tooltip("View Alternatives"));
 
-        replaceButton.setOnAction(e -> {
-            TextInputDialog dialog = new TextInputDialog(exercise);
-            dialog.setTitle("Replace Exercise");
-            dialog.setHeaderText(null);
-            dialog.setContentText("New exercise name:");
-
-            dialog.showAndWait().ifPresent(newExercise -> {
-                if (!newExercise.trim().isEmpty()) {
-                    DatabaseHelper.replaceExercise(username, splitName, day, exercise, newExercise.trim());
-                    showModifyDayScreen(username, splitName, day);
-                }
-            });
-        });
+        replaceButton.setOnAction(e -> showExercisePickerScreen(username, splitName, day, exercise));
 
         removeButton.setOnAction(e -> {
             DatabaseHelper.removeExercise(username, splitName, day, exercise);
@@ -1940,24 +2197,93 @@ public class AppUI extends Application {
 
         alternativeButton.setOnAction(e -> showAlternativesScreen(username, splitName, day, exercise));
 
-        HBox row = new HBox(10, nameLabel, replaceButton, removeButton, alternativeButton);
-        row.setAlignment(Pos.CENTER_LEFT);
-        return row;
+        alternativeButton.setText("Alt");
+        replaceButton.setText("Replace");
+        removeButton.setText("Remove");
+
+        alternativeButton.setStyle(compactSecondaryButtonStyle());
+        replaceButton.setStyle(compactSecondaryButtonStyle());
+        removeButton.setStyle(compactDangerButtonStyle());
+
+        alternativeButton.setMaxWidth(Double.MAX_VALUE);
+        replaceButton.setMaxWidth(Double.MAX_VALUE);
+        removeButton.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(alternativeButton, Priority.ALWAYS);
+        HBox.setHgrow(replaceButton, Priority.ALWAYS);
+        HBox.setHgrow(removeButton, Priority.ALWAYS);
+
+        HBox topRow = new HBox(12, iconLabel, textBox);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        HBox buttonRow = new HBox(8, alternativeButton, replaceButton, removeButton);
+        buttonRow.setAlignment(Pos.CENTER);
+
+        VBox cardContent = new VBox(12, topRow, buttonRow);
+        cardContent.setAlignment(Pos.CENTER_LEFT);
+        cardContent.setPadding(new Insets(16));
+        cardContent.setMaxWidth(Double.MAX_VALUE);
+        cardContent.setStyle(exerciseEditorRowStyle());
+
+        HBox wrapper = new HBox(cardContent);
+        HBox.setHgrow(cardContent, Priority.ALWAYS);
+        wrapper.setMaxWidth(Double.MAX_VALUE);
+        return wrapper;
     }
 
     private void showAlternativesScreen(String username, String splitName, String day, String exercise) {
         Label title = new Label("Alternatives for " + exercise);
-        title.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label("Pick a similar movement for this slot.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
 
         VBox alternativesBox = new VBox(10);
+        alternativesBox.setFillWidth(true);
         List<String> alternatives = DatabaseHelper.getAlternatives(exercise);
 
         if (alternatives.isEmpty()) {
-            alternativesBox.getChildren().add(new Label("No alternatives found yet."));
+            Label emptyLabel = new Label("No alternatives found yet.");
+            emptyLabel.setStyle(
+                    "-fx-background-color: rgba(255,255,255,0.9);" +
+                            "-fx-background-radius: 18;" +
+                            "-fx-border-color: #d1d5db;" +
+                            "-fx-border-radius: 18;" +
+                            "-fx-padding: 18;" +
+                            "-fx-text-fill: #6b7280;" +
+                            "-fx-font-size: 14px;"
+            );
+            emptyLabel.setMaxWidth(Double.MAX_VALUE);
+            alternativesBox.getChildren().add(emptyLabel);
         } else {
             for (String alternative : alternatives) {
-                Button altButton = new Button(alternative);
+                Label nameLabel = new Label(getExerciseIcon(alternative) + "  " + alternative);
+                nameLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #111827; -fx-font-weight: bold;");
+                nameLabel.setWrapText(true);
+
+                Label groupLabel = new Label(DatabaseHelper.getMuscleGroupForExercise(alternative));
+                groupLabel.setStyle(modernTagStyle());
+
+                Label focusLabel = new Label(DatabaseHelper.getFocusAreaForExercise(alternative));
+                focusLabel.setStyle(modernAccentTagStyle());
+
+                HBox tagRow = new HBox(6, groupLabel);
+                if (!focusLabel.getText().isBlank()) {
+                    tagRow.getChildren().add(focusLabel);
+                }
+
+                VBox buttonContent = new VBox(6, nameLabel, tagRow);
+                buttonContent.setAlignment(Pos.CENTER_LEFT);
+                buttonContent.setFillWidth(false);
+
+                Button altButton = new Button();
+                altButton.setGraphic(buttonContent);
+                altButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 altButton.setMaxWidth(Double.MAX_VALUE);
+                altButton.setMinHeight(Region.USE_PREF_SIZE);
+                altButton.setPrefHeight(Region.USE_COMPUTED_SIZE);
+                altButton.setAlignment(Pos.CENTER_LEFT);
+                altButton.setStyle(alternativeOptionButtonStyle());
                 altButton.setOnAction(e -> {
                     DatabaseHelper.replaceExercise(username, splitName, day, exercise, alternative);
                     showModifyDayScreen(username, splitName, day);
@@ -1968,13 +2294,276 @@ public class AppUI extends Application {
 
         Button backButton = new Button("Back");
         backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
         backButton.setOnAction(e -> showModifyDayScreen(username, splitName, day));
 
-        VBox layout = new VBox(20, title, alternativesBox, backButton);
-        layout.setPadding(new Insets(25));
-        layout.setAlignment(Pos.CENTER);
+        VBox card = createScreenCard(460);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle, alternativesBox, backButton);
 
-        mainLayout.setCenter(layout);
+        ScrollPane scrollPane = new ScrollPane(card);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+
+        mainLayout.setCenter(wrapScreen(scrollPane));
+    }
+
+    private void showExercisePickerScreen(String username, String splitName, String day, String exerciseToReplace) {
+        boolean replacing = exerciseToReplace != null;
+        String defaultFilter = replacing ? DatabaseHelper.getMuscleGroupForExercise(exerciseToReplace) : "All";
+        if (defaultFilter == null || defaultFilter.isBlank()) {
+            defaultFilter = "All";
+        }
+
+        Label title = new Label(replacing ? "Replace Workout" : "Add Workout");
+        title.setStyle(screenTitleStyle());
+
+        Label subtitle = new Label(replacing
+                ? "Choose a new exercise and narrow the list with a muscle-group filter if you want."
+                : "Pick a workout from the full catalog, then filter down to the muscle group you want.");
+        subtitle.setStyle(screenSubtitleStyle());
+        subtitle.setWrapText(true);
+
+        Label currentExerciseLabel = new Label();
+        if (replacing) {
+            currentExerciseLabel.setText("Current: " + exerciseToReplace);
+            currentExerciseLabel.setStyle(modernTagStyle());
+        }
+
+        Label filterLabel = new Label("Filter by muscle group");
+        filterLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #374151;");
+
+        MenuButton filterButton = new MenuButton("Muscle Group: " + defaultFilter);
+        filterButton.setStyle(modernFilterButtonStyle());
+
+        ComboBox<String> exerciseBox = new ComboBox<>();
+        exerciseBox.setPromptText("Select a workout");
+        exerciseBox.setMaxWidth(Double.MAX_VALUE);
+        exerciseBox.setVisibleRowCount(10);
+        exerciseBox.setStyle(modernComboBoxStyle());
+
+        styleExerciseComboBox(exerciseBox);
+        refreshExerciseOptions(exerciseBox, defaultFilter);
+
+        final String[] selectedFilter = {defaultFilter};
+
+        List<String> muscleGroups = new ArrayList<>();
+        muscleGroups.add("All");
+        muscleGroups.addAll(DatabaseHelper.getAllMuscleGroups());
+
+        for (String muscleGroup : muscleGroups) {
+            MenuItem item = new MenuItem(muscleGroup);
+            item.setOnAction(e -> {
+                selectedFilter[0] = muscleGroup;
+                filterButton.setText("Muscle Group: " + muscleGroup);
+                refreshExerciseOptions(exerciseBox, muscleGroup);
+            });
+            filterButton.getItems().add(item);
+        }
+
+        configureAutocompleteComboBox(
+                exerciseBox,
+                query -> DatabaseHelper.searchExercises(selectedFilter[0], query)
+        );
+
+        Button confirmButton = new Button(replacing ? "Replace Workout" : "Add Workout");
+        confirmButton.setMaxWidth(Double.MAX_VALUE);
+        confirmButton.setStyle(modernPrimaryButtonStyle());
+
+        Label messageLabel = new Label();
+        messageLabel.setWrapText(true);
+        messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #dc2626;");
+
+        confirmButton.setOnAction(e -> {
+            String selectedExercise = resolveAutocompleteSelection(
+                    exerciseBox,
+                    query -> DatabaseHelper.searchExercises(selectedFilter[0], query)
+            );
+            if (selectedExercise == null || selectedExercise.isBlank()) {
+                messageLabel.setText("Choose a workout from the dropdown first.");
+                return;
+            }
+
+            if (replacing) {
+                DatabaseHelper.replaceExercise(username, splitName, day, exerciseToReplace, selectedExercise);
+            } else {
+                int nextOrder = DatabaseHelper.getExercisesForDay(username, splitName, day).size();
+                DatabaseHelper.addExerciseToDay(username, splitName, day, selectedExercise, nextOrder);
+            }
+
+            showModifyDayScreen(username, splitName, day);
+        });
+
+        Button backButton = new Button("Back");
+        backButton.setMaxWidth(Double.MAX_VALUE);
+        backButton.setStyle(modernSecondaryButtonStyle());
+        backButton.setOnAction(e -> showModifyDayScreen(username, splitName, day));
+
+        VBox card = createScreenCard(460);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.getChildren().addAll(title, subtitle);
+        if (replacing) {
+            card.getChildren().add(currentExerciseLabel);
+        }
+        card.getChildren().addAll(filterLabel, filterButton, exerciseBox, confirmButton, backButton, messageLabel);
+
+        mainLayout.setCenter(wrapScreen(card));
+    }
+
+    private void refreshExerciseOptions(ComboBox<String> exerciseBox, String muscleGroup) {
+        List<String> exercises = DatabaseHelper.getExercisesByMuscleGroup(muscleGroup);
+        applyExerciseOptions(exerciseBox, exercises);
+    }
+
+    private void applyExerciseOptions(ComboBox<String> exerciseBox, List<String> exercises) {
+        exerciseBox.getItems().setAll(exercises);
+        exerciseBox.getSelectionModel().clearSelection();
+        exerciseBox.setPromptText(exercises.isEmpty() ? "No workouts found" : "Select a workout");
+    }
+
+    private void configureAutocompleteComboBox(ComboBox<String> exerciseBox, Function<String, List<String>> suggestionProvider) {
+        exerciseBox.setEditable(true);
+        final boolean[] updating = {false};
+
+        exerciseBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
+            if (updating[0]) {
+                return;
+            }
+
+            List<String> suggestions = suggestionProvider.apply(newValue == null ? "" : newValue.trim());
+            updating[0] = true;
+            applyExerciseOptions(exerciseBox, suggestions);
+            exerciseBox.getEditor().setText(newValue);
+            exerciseBox.getEditor().positionCaret(newValue == null ? 0 : newValue.length());
+            updating[0] = false;
+
+            if (suggestions.isEmpty()) {
+                exerciseBox.hide();
+            } else {
+                exerciseBox.show();
+            }
+        });
+
+        exerciseBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null || updating[0]) {
+                return;
+            }
+
+            updating[0] = true;
+            exerciseBox.getEditor().setText(newValue);
+            exerciseBox.getEditor().positionCaret(newValue.length());
+            updating[0] = false;
+        });
+    }
+
+    private String resolveAutocompleteSelection(ComboBox<String> exerciseBox, Function<String, List<String>> suggestionProvider) {
+        String selected = exerciseBox.getValue();
+        if (selected != null && !selected.isBlank()) {
+            return selected;
+        }
+
+        String typedText = exerciseBox.getEditor().getText();
+        if (typedText == null || typedText.isBlank()) {
+            return null;
+        }
+
+        List<String> suggestions = suggestionProvider.apply(typedText.trim());
+        if (!suggestions.isEmpty()) {
+            return suggestions.get(0);
+        }
+
+        return typedText.trim();
+    }
+
+    private List<String> filterExercisesList(List<String> exercises, String muscleGroup, String query) {
+        List<String> filtered = new ArrayList<>();
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
+
+        for (String exercise : exercises) {
+            String exerciseMuscleGroup = DatabaseHelper.getMuscleGroupForExercise(exercise);
+            boolean matchesMuscle = muscleGroup == null || muscleGroup.equals("All") || muscleGroup.equalsIgnoreCase(exerciseMuscleGroup);
+            boolean matchesQuery = normalizedQuery.isBlank() || exercise.toLowerCase().contains(normalizedQuery);
+
+            if (matchesMuscle && matchesQuery) {
+                filtered.add(exercise);
+            }
+        }
+
+        filtered.sort((left, right) -> {
+            boolean leftStarts = !normalizedQuery.isBlank() && left.toLowerCase().startsWith(normalizedQuery);
+            boolean rightStarts = !normalizedQuery.isBlank() && right.toLowerCase().startsWith(normalizedQuery);
+            if (leftStarts != rightStarts) {
+                return leftStarts ? -1 : 1;
+            }
+            return left.compareToIgnoreCase(right);
+        });
+
+        return filtered;
+    }
+
+    private void styleExerciseComboBox(ComboBox<String> exerciseBox) {
+        exerciseBox.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+
+                Label itemNameLabel = new Label(getExerciseIcon(item) + "  " + item);
+                itemNameLabel.setStyle("-fx-text-fill: #111827; -fx-font-size: 14px; -fx-font-weight: bold;");
+
+                Label groupLabel = new Label(DatabaseHelper.getMuscleGroupForExercise(item));
+                groupLabel.setStyle(modernTagStyle());
+
+                Label focusLabel = new Label(DatabaseHelper.getFocusAreaForExercise(item));
+                focusLabel.setStyle(modernAccentTagStyle());
+
+                HBox tagRow = new HBox(6, groupLabel);
+                if (!focusLabel.getText().isBlank()) {
+                    tagRow.getChildren().add(focusLabel);
+                }
+
+                VBox content = new VBox(4, itemNameLabel, tagRow);
+                setGraphic(content);
+            }
+        });
+
+        exerciseBox.setCellFactory(listView -> new ListCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+
+                Label itemNameLabel = new Label(getExerciseIcon(item) + "  " + item);
+                itemNameLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #111827; -fx-font-weight: bold;");
+
+                Label groupLabel = new Label(DatabaseHelper.getMuscleGroupForExercise(item));
+                groupLabel.setStyle(modernTagStyle());
+
+                Label focusLabel = new Label(DatabaseHelper.getFocusAreaForExercise(item));
+                focusLabel.setStyle(modernAccentTagStyle());
+
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+
+                HBox tagRow = new HBox(6, groupLabel);
+                if (!focusLabel.getText().isBlank()) {
+                    tagRow.getChildren().add(focusLabel);
+                }
+
+                VBox textBox = new VBox(4, itemNameLabel, tagRow);
+                HBox row = new HBox(10, textBox, spacer);
+                row.setAlignment(Pos.CENTER_LEFT);
+                setGraphic(row);
+            }
+        });
     }
 
     private void seedSelectedSplitForUser(String username, String splitName) {
@@ -2023,13 +2612,13 @@ public class AppUI extends Application {
 
     private String modernNavButtonStyle() {
         return "-fx-background-color: white;" +
-                "-fx-text-fill: #111827;" +
-                "-fx-font-size: 15px;" +
+                "-fx-text-fill: " + primaryText() + ";" +
+                "-fx-font-size: " + px(15) + "px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 18;" +
                 "-fx-border-radius: 18;" +
-                "-fx-border-color: #d1d5db;" +
-                "-fx-padding: 12 18 12 18;";
+                "-fx-border-color: " + borderColor() + ";" +
+                "-fx-padding: " + px(12) + " " + px(18) + " " + px(12) + " " + px(18) + ";";
     }
 
     private String getExerciseIcon(String exercise) {
@@ -2064,30 +2653,127 @@ public class AppUI extends Application {
     private String modernPrimaryButtonStyle() {
         return "-fx-background-color: linear-gradient(to right, #111827, #1f2937);" +
                 "-fx-text-fill: white;" +
-                "-fx-font-size: 15px;" +
+                "-fx-font-size: " + px(15) + "px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 16;" +
-                "-fx-padding: 14 18 14 18;";
+                "-fx-padding: " + px(14) + " " + px(18) + " " + px(14) + " " + px(18) + ";";
     }
 
     private String modernSecondaryButtonStyle() {
         return "-fx-background-color: #ffffff;" +
-                "-fx-text-fill: #111827;" +
-                "-fx-font-size: 15px;" +
+                "-fx-text-fill: " + primaryText() + ";" +
+                "-fx-font-size: " + px(15) + "px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 16;" +
-                "-fx-border-color: #d1d5db;" +
+                "-fx-border-color: " + borderColor() + ";" +
                 "-fx-border-radius: 16;" +
-                "-fx-padding: 14 18 14 18;";
+                "-fx-padding: " + px(14) + " " + px(18) + " " + px(14) + " " + px(18) + ";";
+    }
+
+    private String modernDangerButtonStyle() {
+        return "-fx-background-color: #fff1f2;" +
+                "-fx-text-fill: #be123c;" +
+                "-fx-font-size: " + px(15) + "px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 16;" +
+                "-fx-border-color: #fecdd3;" +
+                "-fx-border-radius: 16;" +
+                "-fx-padding: " + px(14) + " " + px(18) + " " + px(14) + " " + px(18) + ";";
+    }
+
+    private String compactSecondaryButtonStyle() {
+        return "-fx-background-color: #ffffff;" +
+                "-fx-text-fill: " + primaryText() + ";" +
+                "-fx-font-size: " + px(13) + "px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 14;" +
+                "-fx-border-color: " + borderColor() + ";" +
+                "-fx-border-radius: 14;" +
+                "-fx-padding: " + px(10) + " " + px(12) + " " + px(10) + " " + px(12) + ";";
+    }
+
+    private String compactDangerButtonStyle() {
+        return "-fx-background-color: #fff1f2;" +
+                "-fx-text-fill: #be123c;" +
+                "-fx-font-size: " + px(13) + "px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 14;" +
+                "-fx-border-color: #fecdd3;" +
+                "-fx-border-radius: 14;" +
+                "-fx-padding: " + px(10) + " " + px(12) + " " + px(10) + " " + px(12) + ";";
     }
 
     private String modernFieldStyle() {
         return "-fx-background-color: white;" +
                 "-fx-background-radius: 14;" +
-                "-fx-border-color: #d1d5db;" +
+                "-fx-border-color: " + borderColor() + ";" +
                 "-fx-border-radius: 14;" +
-                "-fx-padding: 12 14 12 14;" +
-                "-fx-font-size: 14px;";
+                "-fx-padding: " + px(12) + " " + px(14) + " " + px(12) + " " + px(14) + ";" +
+                "-fx-font-size: " + px(14) + "px;" +
+                "-fx-text-fill: " + primaryText() + ";";
+    }
+
+    private String modernComboBoxStyle() {
+        return modernFieldStyle() +
+                "-fx-font-size: " + px(14) + "px;" +
+                "-fx-font-weight: bold;";
+    }
+
+    private String modernFilterButtonStyle() {
+        return "-fx-background-color: #eef2ff;" +
+                "-fx-text-fill: #3730a3;" +
+                "-fx-font-size: " + px(14) + "px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-background-radius: 16;" +
+                "-fx-border-color: #c7d2fe;" +
+                "-fx-border-radius: 16;" +
+                "-fx-padding: " + px(12) + " " + px(16) + " " + px(12) + " " + px(16) + ";";
+    }
+
+    private String exerciseEditorRowStyle() {
+        return "-fx-background-color: rgba(255,255,255,0.95);" +
+                "-fx-background-radius: 22;" +
+                "-fx-border-color: " + borderColor() + ";" +
+                "-fx-border-radius: 22;";
+    }
+
+    private String alternativeOptionButtonStyle() {
+        return "-fx-background-color: #ffffff;" +
+                "-fx-text-fill: " + primaryText() + ";" +
+                "-fx-background-radius: 18;" +
+                "-fx-border-color: " + borderColor() + ";" +
+                "-fx-border-radius: 18;" +
+                "-fx-padding: " + px(14) + ";";
+    }
+
+    private String modernTagStyle() {
+        return "-fx-background-color: #f3f4f6;" +
+                "-fx-background-radius: 999;" +
+                "-fx-padding: " + px(4) + " " + px(10) + " " + px(4) + " " + px(10) + ";" +
+                "-fx-text-fill: #4b5563;" +
+                "-fx-font-size: " + px(11) + "px;" +
+                "-fx-font-weight: bold;";
+    }
+
+    private String modernAccentTagStyle() {
+        return "-fx-background-color: #eef2ff;" +
+                "-fx-background-radius: 999;" +
+                "-fx-padding: " + px(4) + " " + px(10) + " " + px(4) + " " + px(10) + ";" +
+                "-fx-text-fill: #4338ca;" +
+                "-fx-font-size: " + px(11) + "px;" +
+                "-fx-font-weight: bold;";
+    }
+
+    private String checkboxStyle() {
+        return "-fx-font-size: " + px(14) + "px; -fx-text-fill: " + primaryText() + ";";
+    }
+
+    private String surfaceStyle() {
+        return "-fx-background-color: white;" +
+                "-fx-background-radius: 18;" +
+                "-fx-border-color: " + borderColor() + ";" +
+                "-fx-border-radius: 18;" +
+                "-fx-padding: " + px(16) + ";";
     }
 
     private boolean isValidUsername(String username) {
@@ -2118,15 +2804,146 @@ public class AppUI extends Application {
                 : "-fx-font-size: 18px; -fx-text-fill: #dc2626; -fx-font-weight: bold;");
     }
 
+    private int px(double base) {
+        return (int) Math.round(base * textScale);
+    }
+
+    private double scaledSpacing(double base) {
+        double spacingScale = compactSpacing ? 0.85 : 1.0;
+        return base * textScale * spacingScale;
+    }
+
+    private String primaryText() {
+        return highContrastMode ? "#030712" : "#111827";
+    }
+
+    private String secondaryText() {
+        return highContrastMode ? "#1f2937" : "#6b7280";
+    }
+
+    private String borderColor() {
+        return highContrastMode ? "#94a3b8" : "#e5e7eb";
+    }
+
+    private String cardFill() {
+        return highContrastMode ? "#ffffff" : "rgba(255,255,255,0.97)";
+    }
+
     private String appBackgroundStyle() {
-        return "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);";
+        return highContrastMode
+                ? "-fx-background-color: linear-gradient(to bottom, #020617, #0f172a, #111827);"
+                : "-fx-background-color: linear-gradient(to bottom, #0f172a, #111827, #1f2937);";
     }
 
     private String screenCardStyle() {
-        return "-fx-background-color: rgba(255,255,255,0.97);" +
+        return "-fx-background-color: " + cardFill() + ";" +
                 "-fx-background-radius: 24;" +
-                "-fx-border-color: #e5e7eb;" +
+                "-fx-border-color: " + borderColor() + ";" +
                 "-fx-border-radius: 24;";
+    }
+
+    // Reusable brand tile so splash, login, and dashboard feel like one app.
+    private StackPane createBrandMark(double size) {
+        StackPane outer = new StackPane();
+        outer.setPrefSize(size, size);
+        outer.setMinSize(size, size);
+        outer.setMaxSize(size, size);
+        outer.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #0f172a, #172554, #1d4ed8);" +
+                        "-fx-background-radius: " + px(26) + ";" +
+                        "-fx-border-color: rgba(191,219,254,0.35);" +
+                        "-fx-border-radius: " + px(26) + ";"
+        );
+
+        Circle glow = new Circle(size * 0.36);
+        glow.setFill(Color.rgb(255, 255, 255, 0.12));
+        glow.setTranslateY(-size * 0.12);
+        glow.setTranslateX(size * 0.1);
+
+        StackPane inner = new StackPane();
+        double innerSize = size * 0.72;
+        inner.setPrefSize(innerSize, innerSize);
+        inner.setMaxSize(innerSize, innerSize);
+        inner.setStyle(
+                "-fx-background-color: rgba(248,250,252,0.12);" +
+                        "-fx-background-radius: " + px(18) + ";" +
+                        "-fx-border-color: rgba(255,255,255,0.14);" +
+                        "-fx-border-radius: " + px(18) + ";"
+        );
+
+        ImageView logo = createLogoView(size * 0.5);
+        logo.setOpacity(0.98);
+        inner.getChildren().add(logo);
+
+        outer.getChildren().addAll(glow, inner);
+        return outer;
+    }
+
+    private VBox createBrandHero(String titleText, String subtitleText) {
+        StackPane brandMark = createBrandMark(104);
+
+        Label eyebrow = new Label("Strength Companion");
+        eyebrow.setStyle(
+                "-fx-background-color: rgba(148,163,184,0.18);" +
+                        "-fx-background-radius: 999;" +
+                        "-fx-padding: " + px(5) + " " + px(12) + ";" +
+                        "-fx-text-fill: #dbeafe;" +
+                        "-fx-font-size: " + px(11) + "px;" +
+                        "-fx-font-weight: bold;"
+        );
+
+        Label title = new Label(titleText);
+        title.setWrapText(true);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setStyle(
+                "-fx-font-size: " + px(31) + "px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: white;"
+        );
+
+        Label subtitle = new Label(subtitleText);
+        subtitle.setWrapText(true);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+        subtitle.setStyle(
+                "-fx-font-size: " + px(14) + "px;" +
+                        "-fx-text-fill: #cbd5e1;"
+        );
+
+        VBox hero = new VBox(scaledSpacing(12), brandMark, eyebrow, title, subtitle);
+        hero.setAlignment(Pos.CENTER);
+        return hero;
+    }
+
+    private HBox createCompactBrandBar() {
+        StackPane mark = createBrandMark(38);
+
+        Label titleLabel = new Label("Record Breaker");
+        titleLabel.setStyle("-fx-font-size: " + px(18) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+        titleLabel.setWrapText(false);
+
+        HBox box = new HBox(8, mark, titleLabel);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
+    }
+
+    private VBox createMenuActionCard(String titleText, String descriptionText, Button actionButton) {
+        Label title = new Label(titleText);
+        title.setWrapText(true);
+        title.setStyle("-fx-font-size: " + px(18) + "px; -fx-font-weight: bold; -fx-text-fill: " + primaryText() + ";");
+
+        Label description = new Label(descriptionText);
+        description.setWrapText(true);
+        description.setStyle("-fx-font-size: " + px(13) + "px; -fx-text-fill: " + secondaryText() + ";");
+
+        actionButton.setMaxWidth(Double.MAX_VALUE);
+
+        VBox card = new VBox(scaledSpacing(10), title, description, actionButton);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setFillWidth(true);
+        card.setPadding(new Insets(scaledSpacing(18)));
+        card.setStyle(surfaceStyle());
+        GridPane.setHgrow(card, Priority.ALWAYS);
+        return card;
     }
 
     private ImageView createLogoView(double size) {
@@ -2138,56 +2955,65 @@ public class AppUI extends Application {
         return logo;
     }
 
-    private void confirmExitWorkout(String username) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Exit Workout");
-        alert.setHeaderText("Are you sure you want to exit?");
-        alert.setContentText("Your saved sets will be kept. Unsaved sets on this screen will be lost.");
-
-        ButtonType noButton = new ButtonType("No", ButtonBar.ButtonData.CANCEL_CLOSE);
-        ButtonType exitSaveButton = new ButtonType("Exit and Save", ButtonBar.ButtonData.OK_DONE);
-
-        alert.getButtonTypes().setAll(noButton, exitSaveButton);
-
-        Optional<ButtonType> result = alert.showAndWait();
-        if (result.isPresent() && result.get() == exitSaveButton) {
-            showDashboard(username);
-        }
+    private void confirmExitWorkout(String username, Runnable onCancel) {
+        showConfirmScreen(
+                "Exit Workout",
+                "Your saved sets will be kept, but unfinished entries on this screen will be lost.",
+                "Exit and Save",
+                () -> showDashboard(username),
+                onCancel
+        );
     }
 
     private String screenTitleStyle() {
-        return "-fx-font-size: 28px;" +
+        return "-fx-font-size: " + px(28) + "px;" +
                 "-fx-font-weight: bold;" +
-                "-fx-text-fill: #111827;";
+                "-fx-text-fill: " + primaryText() + ";";
     }
 
     private String screenSubtitleStyle() {
-        return "-fx-font-size: 14px;" +
-                "-fx-text-fill: #6b7280;";
+        return "-fx-font-size: " + px(14) + "px;" +
+                "-fx-text-fill: " + secondaryText() + ";";
     }
 
     private VBox createScreenCard(double maxWidth) {
-        VBox card = new VBox(14);
+        VBox card = new VBox(scaledSpacing(14));
         card.setAlignment(Pos.CENTER);
-        card.setMaxWidth(maxWidth);
-        card.setPadding(new Insets(28));
+        card.setMaxWidth(Math.min(maxWidth, preferredCardWidth));
+        card.setPadding(new Insets(scaledSpacing(28)));
         card.setStyle(screenCardStyle());
         return card;
     }
 
     private StackPane wrapScreen(Node content) {
-        StackPane wrapper = new StackPane(content);
+        ScrollPane scrollPane = new ScrollPane(content);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setPannable(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle(
+                "-fx-background: transparent;" +
+                        "-fx-background-color: transparent;"
+        );
+
+        if (content instanceof Region) {
+            ((Region) content).setMaxWidth(preferredCardWidth + scaledSpacing(80));
+        }
+
+        StackPane wrapper = new StackPane(scrollPane);
         wrapper.setStyle(appBackgroundStyle());
-        wrapper.setPadding(new Insets(30));
+        wrapper.setPadding(new Insets(scaledSpacing(30)));
         return wrapper;
     }
 
     private VBox profileStat(String label, String value) {
         Label labelNode = new Label(label);
-        labelNode.setStyle("-fx-font-size: 12px; -fx-text-fill: #6b7280; -fx-font-weight: bold;");
+        labelNode.setStyle("-fx-font-size: " + px(12) + "px; -fx-text-fill: " + secondaryText() + "; -fx-font-weight: bold;");
 
         Label valueNode = new Label(value);
-        valueNode.setStyle("-fx-font-size: 18px; -fx-text-fill: #111827;");
+        valueNode.setStyle("-fx-font-size: " + px(18) + "px; -fx-text-fill: " + primaryText() + ";");
+        valueNode.setWrapText(true);
 
         VBox box = new VBox(2, labelNode, valueNode);
         return box;

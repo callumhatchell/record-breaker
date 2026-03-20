@@ -2,12 +2,19 @@ package com.recordbreaker;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.Collections;
 
 import java.io.File;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
@@ -16,6 +23,10 @@ import java.time.format.DateTimeFormatter;
 public class DatabaseHelper {
 
     private static final String DB_URL = "jdbc:sqlite:record_breaker.db";
+    private static final String EXERCISE_CATALOG_RESOURCE = "/exercise_catalog.csv";
+    private static Map<String, ExerciseProfile> exerciseProfilesCache;
+
+    private record ExerciseProfile(String muscleGroup, String focusArea, String exerciseName) {}
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(DB_URL);
@@ -57,6 +68,14 @@ public class DatabaseHelper {
     );
     """;
 
+        String exerciseCatalogTable = """
+CREATE TABLE IF NOT EXISTS exercise_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_name TEXT NOT NULL UNIQUE,
+    muscle_group TEXT NOT NULL
+);
+""";
+
         String selectedSplitsTable = """
             CREATE TABLE IF NOT EXISTS selected_splits (
                 username TEXT PRIMARY KEY,
@@ -94,6 +113,10 @@ public class DatabaseHelper {
             stmt.execute(selectedSplitsTable);
             stmt.execute(splitExercisesTable);
             stmt.execute(alternativesTable);
+            stmt.execute(exerciseCatalogTable);
+
+            seedExerciseAlternatives();
+            seedExerciseCatalog();
 
             ensureWorkoutWarmupColumn();
 
@@ -333,6 +356,123 @@ public class DatabaseHelper {
         }
 
         return "N/A";
+    }
+
+    public static void seedExerciseCatalog() {
+        loadExerciseCatalogFromResource(EXERCISE_CATALOG_RESOURCE);
+    }
+
+    private static void loadExerciseCatalogFromResource(String resourcePath) {
+        try (InputStream inputStream = DatabaseHelper.class.getResourceAsStream(resourcePath)) {
+            if (inputStream == null) {
+                System.err.println("Exercise catalog resource not found: " + resourcePath);
+                return;
+            }
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                boolean isFirstLine = true;
+
+                while ((line = reader.readLine()) != null) {
+                    String trimmed = line.trim();
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        continue;
+                    }
+
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        if (trimmed.equalsIgnoreCase("muscle_group,focus_area,exercise_name")) {
+                            continue;
+                        }
+                    }
+
+                    String[] parts = trimmed.split(",", 3);
+                    if (parts.length < 3) {
+                        continue;
+                    }
+
+                    String muscleGroup = parts[0].trim();
+                    String exerciseName = parts[2].trim();
+
+                    if (!muscleGroup.isEmpty() && !exerciseName.isEmpty()) {
+                        insertExerciseIfMissing(exerciseName, muscleGroup);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Map<String, ExerciseProfile> getExerciseProfiles() {
+        if (exerciseProfilesCache != null) {
+            return exerciseProfilesCache;
+        }
+
+        Map<String, ExerciseProfile> profiles = new LinkedHashMap<>();
+
+        try (InputStream inputStream = DatabaseHelper.class.getResourceAsStream(EXERCISE_CATALOG_RESOURCE)) {
+            if (inputStream == null) {
+                exerciseProfilesCache = profiles;
+                return exerciseProfilesCache;
+            }
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                boolean isFirstLine = true;
+
+                while ((line = reader.readLine()) != null) {
+                    String trimmed = line.trim();
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        continue;
+                    }
+
+                    if (isFirstLine) {
+                        isFirstLine = false;
+                        continue;
+                    }
+
+                    String[] parts = trimmed.split(",", 3);
+                    if (parts.length < 3) {
+                        continue;
+                    }
+
+                    String muscleGroup = parts[0].trim();
+                    String focusArea = parts[1].trim();
+                    String exerciseName = parts[2].trim();
+
+                    if (!exerciseName.isEmpty()) {
+                        profiles.put(exerciseName, new ExerciseProfile(muscleGroup, focusArea, exerciseName));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        exerciseProfilesCache = profiles;
+        return exerciseProfilesCache;
+    }
+
+    private static void insertExerciseIfMissing(String exerciseName, String muscleGroup) {
+        String checkSql = "SELECT 1 FROM exercise_catalog WHERE exercise_name = ?";
+        String insertSql = "INSERT INTO exercise_catalog(exercise_name, muscle_group) VALUES (?, ?)";
+
+        try (Connection conn = connect();
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+             PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+
+            checkStmt.setString(1, exerciseName);
+            ResultSet rs = checkStmt.executeQuery();
+
+            if (!rs.next()) {
+                insertStmt.setString(1, exerciseName);
+                insertStmt.setString(2, muscleGroup);
+                insertStmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public static String getDateJoined(String username) {
@@ -771,7 +911,7 @@ public class DatabaseHelper {
             ORDER BY alternative_name ASC
             """;
 
-        List<String> alternatives = new ArrayList<>();
+        LinkedHashSet<String> alternatives = new LinkedHashSet<>();
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -787,7 +927,26 @@ public class DatabaseHelper {
             e.printStackTrace();
         }
 
-        return alternatives;
+        String focusArea = getFocusAreaForExercise(exercise);
+        String muscleGroup = getMuscleGroupForExercise(exercise);
+
+        if (focusArea != null && !focusArea.isBlank()) {
+            for (ExerciseProfile profile : getExerciseProfiles().values()) {
+                if (!profile.exerciseName().equalsIgnoreCase(exercise)
+                        && profile.muscleGroup().equalsIgnoreCase(muscleGroup)
+                        && profile.focusArea().equalsIgnoreCase(focusArea)) {
+                    alternatives.add(profile.exerciseName());
+                }
+            }
+        } else if (muscleGroup != null && !muscleGroup.isBlank()) {
+            for (String relatedExercise : getExercisesByMuscleGroup(muscleGroup)) {
+                if (!relatedExercise.equalsIgnoreCase(exercise)) {
+                    alternatives.add(relatedExercise);
+                }
+            }
+        }
+
+        return new ArrayList<>(alternatives);
     }
 
     public static void seedExerciseAlternatives() {
@@ -804,6 +963,125 @@ public class DatabaseHelper {
         insertAlternativeIfMissing("Squats", "Leg Press");
         insertAlternativeIfMissing("Leg Curl", "Romanian Deadlift");
         insertAlternativeIfMissing("Calf Raise", "Seated Calf Raise");
+    }
+
+    public static List<String> getAllMuscleGroups() {
+        List<String> groups = new ArrayList<>();
+        String sql = """
+        SELECT DISTINCT muscle_group
+        FROM exercise_catalog
+        ORDER BY muscle_group ASC
+    """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                groups.add(rs.getString("muscle_group"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return groups;
+    }
+
+    public static List<String> getExercisesByMuscleGroup(String muscleGroup) {
+        List<String> exercises = new ArrayList<>();
+        String sql;
+
+        if (muscleGroup == null || muscleGroup.equals("All")) {
+            sql = """
+            SELECT exercise_name
+            FROM exercise_catalog
+            ORDER BY exercise_name ASC
+        """;
+        } else {
+            sql = """
+            SELECT exercise_name
+            FROM exercise_catalog
+            WHERE muscle_group = ?
+            ORDER BY exercise_name ASC
+        """;
+        }
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            if (sql.contains("WHERE muscle_group = ?")) {
+                stmt.setString(1, muscleGroup);
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                exercises.add(rs.getString("exercise_name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return exercises;
+    }
+
+    public static List<String> searchExercises(String muscleGroup, String query) {
+        List<String> exercises = getExercisesByMuscleGroup(muscleGroup);
+        if (query == null || query.isBlank()) {
+            return exercises;
+        }
+
+        String normalizedQuery = query.trim().toLowerCase();
+        List<String> startsWithMatches = new ArrayList<>();
+        List<String> containsMatches = new ArrayList<>();
+
+        for (String exercise : exercises) {
+            String normalizedExercise = exercise.toLowerCase();
+            if (normalizedExercise.startsWith(normalizedQuery)) {
+                startsWithMatches.add(exercise);
+            } else if (normalizedExercise.contains(normalizedQuery)) {
+                containsMatches.add(exercise);
+            }
+        }
+
+        List<String> results = new ArrayList<>(startsWithMatches);
+        results.addAll(containsMatches);
+        return results;
+    }
+
+    public static String getMuscleGroupForExercise(String exerciseName) {
+        ExerciseProfile profile = getExerciseProfiles().get(exerciseName);
+        if (profile != null) {
+            return profile.muscleGroup();
+        }
+
+        String sql = """
+            SELECT muscle_group
+            FROM exercise_catalog
+            WHERE exercise_name = ?
+            LIMIT 1
+            """;
+
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, exerciseName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("muscle_group");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Custom";
+    }
+
+    public static String getFocusAreaForExercise(String exerciseName) {
+        ExerciseProfile profile = getExerciseProfiles().get(exerciseName);
+        if (profile != null) {
+            return profile.focusArea();
+        }
+        return "";
     }
 
     private static void insertAlternativeIfMissing(String exerciseName, String alternativeName) {

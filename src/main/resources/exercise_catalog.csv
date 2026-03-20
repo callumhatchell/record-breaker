@@ -1,0 +1,201 @@
+muscle_group,focus_area,exercise_name
+Chest,Mid Chest,Barbell Bench Press
+Chest,Mid Chest,Bench Press
+Chest,Mid Chest,Close Grip Bench Press
+Chest,Lower Chest,Decline Bench Press
+Chest,Lower Chest,Decline Dumbbell Bench Press
+Chest,Mid Chest,Dumbbell Bench Press
+Chest,Inner Chest,Hex Press
+Chest,Mid Chest,Machine Chest Press
+Chest,Inner Chest,Plate Press
+Chest,Mid Chest,Smith Machine Bench Press
+Chest,Upper Chest,Incline Barbell Bench Press
+Chest,Upper Chest,Incline Dumbbell Bench Press
+Chest,Upper Chest,Incline Machine Press
+Chest,Upper Chest,Incline Smith Machine Press
+Chest,Inner Chest,Cable Crossover
+Chest,Mid Chest,Cable Fly
+Chest,Upper Chest,Low Cable Fly
+Chest,Mid Chest,Machine Pec Fly
+Chest,Mid Chest,Pec Deck Fly
+Chest,Mid Chest,Push Up
+Chest,Upper Chest,Dumbbell Pullover
+Back,Lats,Assisted Pull Up
+Back,Lats,Close Grip Lat Pulldown
+Back,Lats,Lat Pulldown
+Back,Lats,Neutral Grip Pulldown
+Back,Lats,Pull Up
+Back,Lats,Pull Ups
+Back,Lats,Reverse Grip Pulldown
+Back,Lats,Cable Pullover
+Back,Lats,Straight Arm Pulldown
+Back,Mid Back,Barbell Row
+Back,Mid Back,Cable Row
+Back,Mid Back,Chest Supported Row
+Back,Mid Back,Dumbbell Row
+Back,Mid Back,Inverted Row
+Back,Mid Back,Kroc Row
+Back,Mid Back,Machine Row
+Back,Mid Back,Meadows Row
+Back,Mid Back,Seal Row
+Back,Mid Back,T Bar Row
+Back,Mid Back,Underhand Barbell Row
+Back,Rear Delts,Cable Face Pulls
+Back,Upper Traps,Dumbbell Shrugs
+Back,Upper Traps,Shrug
+Back,Spinal Erectors,Rack Pull
+Back,Spinal Erectors,Trap Bar Deadlift
+Shoulders,Front Delts,Arnold Press
+Shoulders,Front Delts,Barbell Overhead Press
+Shoulders,Front Delts,Dumbbell Shoulder Press
+Shoulders,Front Delts,Landmine Press
+Shoulders,Front Delts,Machine Shoulder Press
+Shoulders,Front Delts,Seated Dumbbell Press
+Shoulders,Front Delts,Smith Machine Shoulder Press
+Shoulders,Side Delts,Cable Lateral Raise
+Shoulders,Side Delts,Dumbbell Lateral Raise
+Shoulders,Front Delts,Cable Front Raise
+Shoulders,Front Delts,Dumbbell Front Raise
+Shoulders,Front Delts,Plate Front Raise
+Shoulders,Rear Delts,Bent Over Rear Delt Raise
+Shoulders,Rear Delts,Rear Delt Cable Fly
+Shoulders,Rear Delts,Rear Delt Fly
+Shoulders,Rear Delts,Reverse Pec Deck
+Shoulders,Rotator Cuff,Cuban Press
+Shoulders,Upper Traps,Upright Row
+Shoulders,Rear Delts,Y Raise
+Triceps,Lateral Head,Rope Pushdown
+Triceps,Lateral Head,Tricep Pressdown
+Triceps,Lateral Head,Tricep Pushdown
+Triceps,Lateral Head,One Arm Cable Pushdown
+Triceps,Long Head,Dumbbell Tricep Extension
+Triceps,Long Head,Overhead Extension
+Triceps,Long Head,Overhead Tricep Extension
+Triceps,Long Head,PJR Pullover
+Triceps,Long Head,Dumbbell Skull Crusher
+Triceps,Long Head,Skull Crusher
+Triceps,Lower Triceps,Bench Dip
+Triceps,Lateral Head,Diamond Push Up
+Triceps,Lower Triceps,Dips
+Triceps,Lower Triceps,Machine Dip
+Triceps,Medial Head,JM Press
+Triceps,Long Head,Cable Kickback
+Triceps,Long Head,Crossbody Cable Extension
+Biceps,Long Head,Alternating Dumbbell Curl
+Biceps,Short Head,Barbell Curl
+Biceps,Short Head,Cable Curl
+Biceps,Short Head,Dumbbell Curl
+Biceps,Short Head,EZ Bar Curl
+Biceps,Short Head,Spider Curl
+Biceps,Short Head,Machine Preacher Curl
+Biceps,Short Head,Preacher Curls
+Biceps,Long Head,Incline Dumbbell Curls
+Biceps,Brachialis,Cross Body Hammer Curl
+Biceps,Brachialis,Hammer Curl
+Biceps,Short Head,Concentration Curl
+Biceps,Long Head,Drag Curl
+Biceps,Brachioradialis,Zottman Curl
+Biceps,Brachioradialis,Reverse Curl
+Forearms,Forearm Flexors,Behind The Back Wrist Curl
+Forearms,Forearm Flexors,Wrist Curl
+Forearms,Forearm Extensors,Reverse Wrist Curls
+Forearms,Grip,Farmers Carry
+Forearms,Grip,Plate Pinch Hold
+Quads,Overall Quads,Barbell Back Squat
+Quads,Overall Quads,Belt Squat
+Quads,Vastus Lateralis,Cyclist Squat
+Quads,Overall Quads,Goblet Squat
+Quads,Overall Quads,Hack Squat
+Quads,Overall Quads,Smith Machine Squat
+Quads,Overall Quads,Squats
+Quads,Rectus Femoris,Leg Extension
+Quads,Overall Quads,Leg Press
+Quads,Glute Medius,Bulgarian Split Squat
+Quads,Overall Quads,Dumbbell Lunge
+Quads,Glute Medius,Reverse Lunge
+Quads,Overall Quads,Split Squat
+Quads,Overall Quads,Step Up
+Hamstrings,Spinal Erectors,Good Morning
+Hamstrings,Hamstrings,Romanian Deadlift
+Hamstrings,Hamstrings,Single Leg Romanian Deadlift
+Hamstrings,Hamstrings,Stiff Leg Deadlift
+Hamstrings,Hamstrings,Leg Curl
+Hamstrings,Hamstrings,Lying Leg Curl
+Hamstrings,Hamstrings,Nordic Curl
+Hamstrings,Hamstrings,Seated Leg Curl
+Hamstrings,Hamstrings,Glute Ham Raise
+Glutes,Glute Max,Barbell Hip Thrust
+Glutes,Glute Max,Glute Bridge
+Glutes,Glute Max,Hip Thrust
+Glutes,Glute Max,Kas Glute Bridge
+Glutes,Glute Max,Single Leg Hip Thrust
+Glutes,Glute Medius,Hip Abduction Machine
+Glutes,Glute Medius,Hip Abduction
+Glutes,Glute Max,Cable Kickback
+Glutes,Glute Medius,Curtsy Lunge
+Glutes,Glute Max,Deficit Reverse Lunge
+Glutes,Glute Max,Walking Lunge
+Glutes,Glute Max,Frog Pump
+Calves,Gastrocnemius,Calf Raise
+Calves,Gastrocnemius,Donkey Calf Raise
+Calves,Gastrocnemius,Single Leg Calf Raise
+Calves,Gastrocnemius,Leg Press Calf Raise
+Calves,Soleus,Seated Calf Raise
+Core,Upper Abs,Cable Crunch
+Core,Upper Abs,Decline Sit Up
+Core,Upper Abs,Sit Up
+Core,Upper Abs,V Up
+Core,Lower Abs,Hanging Knee Raise
+Core,Lower Abs,Hanging Leg Raise
+Core,Lower Abs,Toes To Bar
+Core,Deep Core,Ab Wheel Rollout
+Core,Deep Core,Dead Bug
+Core,Deep Core,Plank
+Core,Obliques,Bicycle Crunch
+Core,Obliques,Heel Touch
+Core,Obliques,Russian Twist
+Core,Obliques,Side Plank
+Core,Lower Abs,Mountain Climber
+Cardio,Conditioning,Air Bike
+Cardio,Conditioning,Battle Ropes
+Cardio,Conditioning,Bike Sprint
+Cardio,Conditioning,Elliptical
+Cardio,Conditioning,Incline Treadmill Walk
+Cardio,Conditioning,Jump Rope
+Cardio,Conditioning,Rowing Machine
+Cardio,Conditioning,Running
+Cardio,Conditioning,Ski Erg
+Cardio,Conditioning,Spin Bike
+Cardio,Conditioning,Stair Climber
+Cardio,Conditioning,Treadmill Jog
+Full Body,Full Body,Barbell Complex
+Full Body,Full Body,Burpee
+Full Body,Posterior Chain,Deadlift
+Full Body,Full Body,Dumbbell Clean And Press
+Full Body,Posterior Chain,Kettlebell Clean
+Full Body,Posterior Chain,Kettlebell Swing
+Full Body,Full Body,Man Maker
+Full Body,Posterior Chain,Power Clean
+Full Body,Front Delts,Push Press
+Full Body,Posterior Chain,Snatch Grip High Pull
+Olympic,Posterior Chain,Block Clean
+Olympic,Posterior Chain,Clean
+Olympic,Posterior Chain,Clean And Jerk
+Olympic,Posterior Chain,Hang Clean
+Olympic,Posterior Chain,Hang Power Clean
+Olympic,Posterior Chain,Power Clean
+Olympic,Posterior Chain,Hang Power Snatch
+Olympic,Posterior Chain,Muscle Snatch
+Olympic,Posterior Chain,Power Snatch
+Olympic,Posterior Chain,Snatch
+Olympic,Upper Traps,High Pull
+Olympic,Front Delts,Push Jerk
+Olympic,Front Delts,Split Jerk
+Adductors,Adductors,Copenhagen Plank
+Adductors,Adductors,Machine Adduction
+Abductors,Abductors,Banded Lateral Walk
+Abductors,Abductors,Hip Abduction
+Abductors,Abductors,Machine Abduction
+Neck,Neck Flexors,Neck Curl
+Neck,Neck Extensors,Neck Extension
+Neck,Neck Sides,Neck Lateral Flexion
